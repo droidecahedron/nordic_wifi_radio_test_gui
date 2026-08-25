@@ -76,9 +76,56 @@ Measured twice: 31 °C then 30 °C, and `get_rf_rssi` returned 7. Both values
 showed up only on the *following* command in the first run, which is what
 prompted the second measurement.
 
-> `show_config`, `otp_get_status`, and `parameters_print` are all synchronous —
-> the whole reply lands before the prompt. So the transport needs both paths, and
-> cannot pick one globally.
+Every reply mode measured so far, by arrival time relative to send:
+
+| command | mode | value arrives |
+| --- | --- | --- |
+| `get_temperature` | deferred | ~1057 ms, `<inf>` log line |
+| `get_voltage` | deferred | ~1008 ms, `battery voltage is = 3690 mV` |
+| `get_rf_rssi` | deferred | log line |
+| `compute_optimal_xo_val` | deferred | ~1058 ms, `Best XO value is = 0` |
+| `show_config` | sync | 50 ms, before the prompt |
+| `get_stats` | sync | 50 ms, before the prompt |
+| `otp_get_status` | sync | before the prompt |
+| `parameters_print` | sync | before the prompt |
+
+So the transport needs both paths and cannot pick one globally.
+
+> `get_stats` is **not** log-only. It returns the five PHY counters as ordinary
+> command output ahead of the prompt:
+>
+> ```
+> ************* PHY STATS ***********
+> rssi_avg = 0 dBm
+> ofdm_crc32_pass_cnt=0
+> ofdm_crc32_fail_cnt=0
+> dsss_crc32_pass_cnt=0
+> dsss_crc32_fail_cnt=0
+> ```
+>
+> Note the formatting is inconsistent — `rssi_avg` is spaced around its `=` and
+> carries a unit, the four counters are not. Anything parsing this must tolerate
+> both.
+
+# The shell advertises a rate it will not take
+
+`tx_pkt_rate` help lists `1, 2, 5.5, 11, 6, 9, 12, 18, 24, 36, 48, 54`. Send the
+one non-integer and it is refused:
+
+```
+wifi_radio_test tx_pkt_rate 5.5
+Invalid Legacy Rate value: 5
+Invalid value 5
+```
+
+The parser truncates `5.5` to `5`, then rejects `5` because 5 is not a legacy
+rate. Readback confirms nothing changed — `tx_pkt_rate = 6`, its prior value.
+5.5 Mbps is a real 802.11b rate, so the help is right and the parser is short an
+integer scaling step.
+
+`tx_power 30` and `reg_domain 00` were both accepted in the same run and read
+back unchanged, so this is specific to `tx_pkt_rate` rather than general argument
+handling.
 
 # Two different failure wordings
 

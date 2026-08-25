@@ -175,6 +175,10 @@ class Command:
     # A parameter shown by show_config under a different key, e.g. set_xo_val is
     # reported as xo_val. Empty when the command has no readback.
     config_key: str = ""
+    # Kconfig condition the image must satisfy for this command to be compiled
+    # in. Documentation and an explanation for the operator; presence is decided
+    # by probing the shell, never by this field or by the board name.
+    gate: str = ""
     # True when running this discards configuration. `init` resets every
     # parameter, so configure after init, never before.
     resets_config: bool = False
