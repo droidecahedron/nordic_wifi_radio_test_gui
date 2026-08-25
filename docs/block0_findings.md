@@ -91,6 +91,31 @@ Every reply mode measured so far, by arrival time relative to send:
 
 So the transport needs both paths and cannot pick one globally.
 
+## A deferred value outlives its command
+
+Abandoning a deferred reply misattributes it to whatever is asked next. Sending
+`get_temperature` without waiting, then `get_voltage`:
+
+```
+get_voltage  ->  The temperature is = 29 degree celsius
+                 The battery voltage is = 3690 mV
+```
+
+The temperature lands inside the voltage reply. `reset_input_buffer` does not
+help, because it only drops bytes that already arrived, not ones still in flight.
+Pausing 1.5 s between the two commands is enough for the stale value to land and
+be discarded.
+
+Two consequences for the transport:
+
+- Silence is not evidence a reply is finished. The gap between prompt and value
+  is around 900 ms, far longer than any sane inter-line idle threshold, so
+  idle-detection alone concludes "done" before the value arrives.
+- Waiting out that window after *every* command is not affordable either. It
+  costs about 2.4 s, and `show_config` and plain setters have nothing to wait
+  for. Only a deferred command that failed to produce its value leaves anything
+  outstanding.
+
 > `get_stats` is **not** log-only. It returns the five PHY counters as ordinary
 > command output ahead of the prompt:
 >
