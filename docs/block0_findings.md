@@ -258,6 +258,63 @@ CALIB_XO is programmed in OTP
 
 MAC0, MAC1, and CALIB_XO are already burned. Nothing in this session wrote OTP.
 
+`otp_read_params` on this part, MAC suffixes redacted because the repo is public
+and the last three octets carry no engineering value:
+
+```
+PRODTEST.FT.PROGVERSION = 0xff0700ff
+PRODTEST.TRIM0 = 0x00090406      PRODTEST.TRIM3 = 0x000f040c
+PRODTEST.TRIM1 = 0x0009d407      PRODTEST.TRIM4 = 0x000fd408
+PRODTEST.TRIM2 = 0x0009d807      PRODTEST.TRIM5 = 0x000fd808
+PRODTEST.TRIM6..14 = 0xffffffff  (unprogrammed)
+INFO.PART = 0x00007002
+INFO.VARIANT = 0x00423030
+INFO.UUID0..3 = 0x1191af34 0x11ee6f8d 0x6d5302cc 0x86e3e07c
+REGION.PROTECT0..3 = 0x50fa50fa
+MAC0.ADDRESS = f4:ce:36:xx:xx:xx
+MAC1.ADDRESS = f4:ce:36:xx:xx:xx   (MAC1 is MAC0 + 1)
+CALIB.XO = 0x2e
+REGION_DEFAULTS = 0xfffffff1
+```
+
+Three cross-checks fall out of this:
+
+- `INFO.PART = 0x00007002` confirms the shield really is an nRF7002.
+- `CALIB.XO = 0x2e` is 46, and `show_config` reports `xo_val = 46`. The
+  configuration parameter is seeded from OTP.
+- `REGION_DEFAULTS = 0xfffffff1` has bit 0 set and bits 1-3 clear. Per
+  `rpu_if.h` the masks are QSPI_KEY bit 0, MAC0 bit 1, MAC1 bit 2, CALIB_XO
+  bit 3, and clear means programmed — which is exactly what `otp_get_status`
+  reports in prose.
+
+Retrim is entirely unprogrammed: `PRODRETEST.PROGVERSION` and all 15
+`PRODRETEST.TRIM` words read `0xffffffff`.
+
+## The OTP write address is a byte address
+
+`otp_write_params` does `field = strtoul(argv[1], NULL, 0); field >>= 2;` while
+every offset in `rpu_if.h` is a **word** offset. Pass the word offset and you
+permanently program a field four times lower in the map.
+
+| field | word offset | address to pass | data words |
+| --- | --- | --- | --- |
+| `REGION_PROTECT` | 64 | `0x100` | 1, writes all 4 words |
+| `QSPI_KEY` | 68 | `0x110` | 4 |
+| `MAC0_ADDR` | 72 | `0x120` | 2 |
+| `MAC1_ADDR` | 74 | `0x128` | 2 |
+| `CALIB_XO` | 76 | `0x130` | 1 |
+| `REGION_DEFAULTS` | 85 | `0x154` | 1 |
+
+The handler rejects anything below `REGION_PROTECT` and anything in the retrim
+range 86-101, which has its own two commands. Every write path re-reads
+`REGION_PROTECT` first and refuses with `USER Region is not Writeable` unless the
+region is `OTP_ENABLE_PATTERN` or fresh from fab. Treat that as the last line of
+defence, not the first.
+
+UNVERIFIED: no write path was exercised, and none should be to settle a question.
+The argument counts above are from the handler's own argc checks, not from a
+write that was performed.
+
 # Short range
 
 Root-level registry answers, confirming the unprefixed table on hardware:
