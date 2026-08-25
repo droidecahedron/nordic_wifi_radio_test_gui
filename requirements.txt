@@ -1,0 +1,4 @@
+# Versions are what the tree was developed and tested against, not floors.
+PyQt6==6.11.0
+pyserial==3.5
+pyinstaller==6.22.2
