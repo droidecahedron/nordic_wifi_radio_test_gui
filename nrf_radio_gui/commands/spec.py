@@ -150,6 +150,33 @@ class NumberSet(Arg):
 
 
 @dataclass(frozen=True)
+class Keyword(Arg):
+    """A literal subcommand name chosen from a set, e.g. data_rate ble_1Mbit.
+
+    These are real Zephyr subcommands rather than values, but an operator picks
+    one from a list, so they are modelled as one argument. `values` is
+    (keyword, label).
+
+    Which keywords exist is per-SoC. nRF54LM20 offers 9 of the 12 data rates and
+    28 of the 33 output_power steps its source declares, so treat the table as
+    the superset and let the probe narrow it.
+    """
+
+    name: str
+    values: tuple
+    help: str = ""
+
+    def validate(self, text):
+        allowed = [k for k, _ in self.values]
+        if str(text) in allowed:
+            return None
+        return f"expected one of {', '.join(allowed)}"
+
+    def labels(self):
+        return self.values
+
+
+@dataclass(frozen=True)
 class Text(Arg):
     """Free string, passed through untouched.
 
@@ -172,6 +199,9 @@ class Command:
     args: tuple = ()
     help: str = ""
     reply: Reply = Reply.NONE
+    # How many of the trailing args may be left off. start_duty_cycle_modulated_tx
+    # takes a duty cycle and an optional packet count.
+    optional: int = 0
     # A parameter shown by show_config under a different key, e.g. set_xo_val is
     # reported as xo_val. Empty when the command has no readback.
     config_key: str = ""
@@ -195,8 +225,10 @@ class Command:
     def errors(self, values=()):
         """Per-argument validation errors, keyed by argument name."""
         found = {}
-        if len(values) != len(self.args):
-            return {"": f"expected {len(self.args)} argument(s)"}
+        least = len(self.args) - self.optional
+        if not least <= len(values) <= len(self.args):
+            want = str(len(self.args)) if not self.optional else f"{least} to {len(self.args)}"
+            return {"": f"expected {want} argument(s)"}
         for arg, value in zip(self.args, values):
             err = arg.validate(value)
             if err:

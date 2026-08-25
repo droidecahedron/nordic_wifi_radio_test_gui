@@ -127,7 +127,7 @@ integer scaling step.
 back unchanged, so this is specific to `tx_pkt_rate` rather than general argument
 handling.
 
-# Two different failure wordings
+# Three different failure wordings
 
 A bad root command is terse:
 
@@ -135,9 +135,31 @@ A bad root command is terse:
 this_is_not_a_command: command not found
 ```
 
-A bad *subcommand* dumps the entire help tree instead — 4572 bytes for
-`wifi_radio_test not_a_subcommand`. Anything that logs raw replies needs to
-expect a screenful from a single typo.
+A bad subcommand of `wifi_radio_test` dumps the entire help tree instead — 4572
+bytes for one typo. Anything logging raw replies needs to expect a screenful.
+
+A bad subcommand of a short-range parent does neither:
+
+```
+data_rate bogus       -> Unknown argument: bogus
+transmit_pattern bogus -> Unknown argument: bogus.
+```
+
+Note `transmit_pattern` puts a full stop on the end and the others do not, so
+match on the prefix rather than the whole string.
+
+## Enumerating subcommands
+
+Send the parent command with no arguments. It lists what that image has:
+
+```
+data_rate    -> nrf_1Mbit nrf_2Mbit nrf_4Mbit_BT06 nrf_4Mbit_BT04 ble_1Mbit
+                ble_2Mbit ble_lr125Kbit ble_lr500Kbit ieee802154_250Kbit
+```
+
+`-h`, `--help`, and `help <cmd>` do not work — the first two come back as
+`Unknown argument`, and `help` takes no parameter. `help` on its own lists the
+root commands.
 
 # Runtime command tables
 
@@ -146,9 +168,33 @@ the sources list.
 
 | registry | in source | on this image |
 | --- | --- | --- |
-| `wifi_radio_test` | 56 | 43 |
-| root, unprefixed | 23 | present, `parameters_print` verified |
+| `wifi_radio_test` | 55 names, 56 rows | 43 |
+| root, unprefixed | 23 | 20 |
 | `wifi_radio_ficr_prog` | 7 | present |
+
+`wifi_radio_test` declares `init` twice, once per `CONFIG_NRF71_RADIO_TEST`
+branch, so 56 `SHELL_CMD_ARG` rows cover 55 distinct names.
+
+Missing from the short-range set, and why:
+
+| absent | gate |
+| --- | --- |
+| `total_output_power` | `CONFIG_RADIO_TEST_POWER_CONTROL_AUTOMATIC` |
+| `toggle_dcdc_state` | `TOGGLE_DCDC_HELP` |
+| `fem` | `CONFIG_FEM` |
+
+Subcommand sets are gated per-SoC too:
+
+| parent | in source | on nRF54LM20 | absent |
+| --- | --- | --- | --- |
+| `data_rate` | 12 | 9 | `nrf_250Kbit`, `nrf_4Mbit0_5`, `nrf_4Mbit0_25` |
+| `output_power` | 33 | 28 | `pos10dBm`, `pos9dBm`, `neg30dBm`, `neg70dBm`, `neg100dBm` |
+| `transmit_pattern` | 3 | 3 | none |
+| `set_channel_sequence_hopping_mode` | 2 | 2 | none |
+
+So the short-range radio on this part tops out at **+8 dBm** and floors at
+**-46 dBm**. Both 4 Mbit BT-shaped proprietary modes are present while
+`nrf_250Kbit` is not.
 
 What the runtime help proves about the build:
 
@@ -226,6 +272,27 @@ Time on each channel: 10 ms
 Duty cycle: 50 percent
 ```
 
+Six settings driven through the table and read back, all landing:
+
+```
+data_rate ble_2Mbit                 -> Data rate: NRF_RADIO_MODE_BLE_2MBIT
+output_power neg10dBm               -> TX power : -10 dBm
+transmit_pattern pattern_11110000   -> Transmission pattern: TRANSMIT_PATTERN_11110000
+start_channel 10                    -> Start Channel: 10
+end_channel 60                      -> End Channel: 60
+time_on_channel 25                  -> Time on each channel: 25 ms
+```
+
+Bounds come from the argument checks in `radio_cmd.c`, not the help strings,
+because they disagree. `time_on_channel` help says "between 1 and 99" while the
+check is `time > 99` and its own error says "between 0 and 99 ms".
+`start_duty_cycle_modulated_tx` help says "between 01 and 90" against a
+`duty_cycle > 90` check. Channels are confirmed by the device:
+
+```
+start_channel 81  ->  Channel must be between 0 and 80
+```
+
 # nrfutil device list
 
 Raw, both kits attached:
@@ -287,7 +354,7 @@ usb             { device{...}, interfaces[], manufacturer, osDevicePath,
 | `--json` position | **trailing works.** Leading not tried |
 | `tx_power` clamp, doc 0-24 vs 30 | **confirmed 30 on hardware.** Do not clamp to 24 |
 | Zephyr not-found wording | **captured.** `<cmd>: command not found`, and a bad subcommand dumps help instead |
-| every `output_power` step on nRF54L | **not tested.** Needs stepping the short-range table |
+| every `output_power` step on nRF54L | **no.** 28 of 33. Ceiling +8 dBm, floor -46 dBm |
 
 # Open
 
