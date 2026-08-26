@@ -1,6 +1,10 @@
 # nRF Radio Test GUI
 
-Drive the nRF Connect SDK radio test shells by clicking instead of typing.
+Drive the nRF Connect SDK [radio test shells](https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/wifi/radio_test/single_domain/README.html) by clicking instead of typing.
+
+<img width="991" height="734" alt="image" src="https://github.com/user-attachments/assets/a94e76b9-580e-4630-b739-afbdbdf67230" />
+
+*Note* : This is an unofficial pyqt wrapper for the sample.
 
 # Hardware
 `nRF54LM20 DK` (PCA10184) + `nRF7002-EB II` (PCA63571)
