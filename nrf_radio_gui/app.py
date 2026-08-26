@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from nrf_radio_gui import __version__
+from nrf_radio_gui import __version__, theme
 
 # tests/test_factory.py derives a row width budget from this, so widen it there too.
 WINDOW_W = 1000
@@ -47,6 +47,7 @@ class MainWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
+    theme.apply(app)
     window = MainWindow()
     window.show()
     return app.exec()
