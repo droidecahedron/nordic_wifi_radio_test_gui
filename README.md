@@ -86,20 +86,6 @@ One tab per shell registry. `43 of 55 on this image` means the table holds every
 command the SDK declares and the probe found 43. **Send** renders the command
 from the table, and replies land in the log pane.
 
-## Testing
-
-| layer | command | covers |
-| --- | --- | --- |
-| headless | `QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover tests` | 135 tests, no hardware, no display |
-| bench | `.venv/bin/python tools/bench_check.py --serial 1051810810` | 27 checks on a real kit, reads only |
-
-Both exit non-zero on failure. Hardware checks stay out of `unittest` on
-purpose, since one that passes with no kit attached is worse than no test.
-
-> [!IMPORTANT]
-> Pass `--serial`. With two DKs attached it refuses to guess. Probing the wrong
-> kit costs 1.5 s per silent port and its second VCOM reports an access error
-> that reads as a fault.
 
 ## Software description
 
@@ -121,6 +107,22 @@ purpose, since one that passes with no kit attached is worse than no test.
 | `docs/block0_findings.md` | what the bench measured |
 
 Commands are data. Adding a subcommand is a table row, never widget code.
+
+## Testing
+
+| layer | command | covers |
+| --- | --- | --- |
+| headless | `QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover tests` | 135 tests, no hardware, no display |
+| bench | `.venv/bin/python tools/bench_check.py --serial 1051810810` | 27 checks on a real kit, reads only |
+
+Both exit non-zero on failure. Hardware checks stay out of `unittest` on
+purpose, since one that passes with no kit attached is worse than no test.
+
+> [!IMPORTANT]
+> Pass `--serial`. With two DKs attached it refuses to guess. Probing the wrong
+> kit costs 1.5 s per silent port and its second VCOM reports an access error
+> that reads as a fault.
+
 
 ## Notes
 
