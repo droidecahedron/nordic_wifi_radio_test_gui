@@ -22,17 +22,19 @@ case that matters — the published range is 0-24 and the device takes 30.
 """
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFontMetrics
+from PyQt6.QtGui import QFont, QFontMetrics
 from PyQt6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QWidget,
 )
 
+from nrf_radio_gui.commands.docs import describe
 from nrf_radio_gui.commands.spec import (
     Choice,
     Flag,
@@ -57,7 +59,15 @@ LABEL_PAD = 16
 # the label leaves over.
 ARG_MIN_W = 110
 ARG_MAX_W = 200
-BUTTON_W = 90
+# Button width comes from Qt, not from font metrics plus a guess. At a fixed 90 px
+# the bold "Write OTP" clipped to "Nrite OTP": the stylesheet adds 14 px of
+# padding each side and a border, which a metrics-only estimate misses.
+BUTTON_MIN_W = 90
+BUTTON_LABELS = ("Send", "Write OTP")
+# The description takes what is left after everything else and elides to fit, so
+# it is deliberately absent from the budget. Squeezing arguments to make room for
+# it left `nrf_1Mbit - 1 M` in a combo box.
+DESC_MIN_W = 0
 SPACING = 6
 MARGINS = 24
 # Reserve the vertical scroll bar's width so a full command list does not push
@@ -70,6 +80,7 @@ MAX_ARGS = 3
 
 
 _label_w = None
+_button_w = None
 
 
 def _command_names():
@@ -92,9 +103,34 @@ def label_width():
     return _label_w
 
 
+def button_width():
+    """Width the widest button label needs, asking Qt for the real hint.
+
+    sizeHint() accounts for the stylesheet's padding, border and font weight.
+    Computing it from font metrics plus a padding constant got it wrong.
+    """
+    global _button_w
+    if _button_w is None:
+        widest = BUTTON_MIN_W
+        for text in BUTTON_LABELS:
+            for role in ("primary", "danger"):
+                probe = QPushButton(text)
+                probe.setProperty("role", role)
+                probe.ensurePolished()
+                widest = max(widest, probe.sizeHint().width())
+        _button_w = widest
+    return _button_w
+
+
 def _fixed(count):
-    """Everything in a row that is not an argument widget."""
-    return (label_width() + BUTTON_W + SPACING * (count + 1)
+    """Everything in a row that is not an argument widget.
+
+    Widgets are the label, `count` arguments, the button and the description, so
+    the gaps between them number one fewer than the widgets. The description
+    contributes no width of its own; it lives on whatever is left.
+    """
+    widgets = 3 + count
+    return (label_width() + button_width() + SPACING * (widgets - 1)
             + MARGINS + SCROLLBAR_W)
 
 
@@ -222,6 +258,41 @@ def mark(widget, invalid):
     widget.style().polish(widget)
 
 
+class ElidedLabel(QLabel):
+    """Label that shrinks to whatever is left and elides rather than pushing.
+
+    A plain QLabel reports the full string as its size hint, which widened every
+    row until the text ran off the right edge. This one asks for nothing and
+    tails off with an ellipsis, keeping the full text in its tooltip.
+    """
+
+    def __init__(self, text="", parent=None):
+        super().__init__(parent)
+        self._full = text
+        self.setWordWrap(False)
+        self.setToolTip(text)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored,
+                           QSizePolicy.Policy.Preferred)
+        self.setMinimumWidth(0)
+
+    def setText(self, text):
+        self._full = text
+        self.setToolTip(text)
+        self._reflow()
+
+    def text(self):
+        return self._full
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._reflow()
+
+    def _reflow(self):
+        metrics = QFontMetrics(self.font())
+        super().setText(metrics.elidedText(self._full, Qt.TextElideMode.ElideRight,
+                                           max(0, self.width())))
+
+
 class CommandRow(QWidget):
     """One command: name, its arguments, and the button that sends it."""
 
@@ -246,15 +317,20 @@ class CommandRow(QWidget):
             self.widgets.append(control)
             layout.addWidget(control)
 
-        # Zero-argument commands would otherwise leave the button floating in the
-        # middle of the row, out of line with every other row's button.
-        layout.addStretch(1)
-
+        # The button sits next to the values it sends. Pinning it to the right
+        # edge put it a long way from the field on a zero-argument row.
         self.button = QPushButton("Write OTP" if command.permanent else "Send")
         self.button.setProperty("role", "danger" if command.permanent else "primary")
-        self.button.setMinimumWidth(BUTTON_W)
+        self.button.setFixedWidth(button_width())
         self.button.clicked.connect(self._send)
         layout.addWidget(self.button)
+
+        # A warning outranks the description: an operator about to burn OTP does
+        # not need to be told what the field means.
+        text = command.warning or describe(command)
+        self.detail = ElidedLabel(text)
+        self.detail.setProperty("role", "danger" if command.warning else "caption")
+        layout.addWidget(self.detail, 1)
 
     def values(self):
         return tuple(value_of(w) for w in self.widgets)

@@ -202,6 +202,55 @@ class TestPermanentWrites(unittest.TestCase):
         self.assertTrue(any("OTP write" in t for t in titles))
 
 
+class TestRowDetail(unittest.TestCase):
+    """Every row carries either a warning or a description, and warnings win."""
+
+    def _row(self, module, name):
+        from nrf_radio_gui.widgets.factory import CommandRow
+        self.row = CommandRow(module.REGISTRY.by_name(name), module.PREFIX,
+                              lambda *a: None)
+        return self.row
+
+    def test_permanent_commands_show_the_warning_not_the_description(self):
+        for name in ("otp_write_params", "otp_write_retrim_version",
+                     "otp_write_retrim_params"):
+            with self.subTest(name):
+                row = self._row(ficr, name)
+                self.assertIn("Permanent", row.detail.text())
+                self.assertEqual(row.detail.property("role"), "danger")
+
+    def test_init_warns_that_it_discards_configuration(self):
+        row = self._row(wifi, "init")
+        self.assertIn("Discards every configuration", row.detail.text())
+        self.assertEqual(row.detail.property("role"), "danger")
+
+    def test_ordinary_commands_show_the_sdk_description(self):
+        row = self._row(wifi, "show_config")
+        self.assertEqual(row.detail.text(),
+                         "Display the current configuration values.")
+        self.assertEqual(row.detail.property("role"), "caption")
+
+    def test_undocumented_commands_fall_back_to_shell_help(self):
+        row = self._row(wifi, "wlan_ant_switch_ctrl")
+        self.assertTrue(row.detail.text())
+        self.assertEqual(row.detail.text(),
+                         wifi.REGISTRY.by_name("wlan_ant_switch_ctrl").help)
+
+    def test_every_command_in_every_table_has_something_to_show(self):
+        for module in (wifi, shortrange, ficr):
+            for command in module.COMMANDS:
+                with self.subTest(f"{module.PREFIX}:{command.name}"):
+                    self.assertTrue(self._row(module, command.name).detail.text())
+
+    def test_the_send_button_sits_before_the_detail(self):
+        """Send belongs next to the values, not pinned to the far right."""
+        row = self._row(wifi, "he_gi")
+        layout = row.layout()
+        order = [layout.itemAt(i).widget() for i in range(layout.count())]
+        self.assertLess(order.index(row.button), order.index(row.detail))
+        self.assertIs(order[-1], row.detail)
+
+
 class TestConfirmDialog(unittest.TestCase):
     def setUp(self):
         self.dialog = ConfirmWrite("CALIB_XO",

@@ -93,7 +93,7 @@ class TestLabelWidth(unittest.TestCase):
                 self.assertGreaterEqual(label, widest,
                                         "label must cover the widest name")
 
-                fixed = (label + factory.BUTTON_W
+                fixed = (label + factory.button_width()
                          + factory.SPACING * (factory.MAX_ARGS + 1)
                          + factory.MARGINS + factory.SCROLLBAR_W)
                 required = fixed + factory.MAX_ARGS * factory.ARG_MIN_W
@@ -103,6 +103,22 @@ class TestLabelWidth(unittest.TestCase):
                 # column shrinking below what a value needs.
                 self.assertGreaterEqual(spare, factory.ARG_MIN_W)
                 self.assertLessEqual(fixed + factory.MAX_ARGS * spare, window)
+
+    def test_no_button_label_is_clipped(self):
+        """A fixed 90 px clipped the bold "Write OTP" to "Nrite OTP".
+
+        Compares against sizeHint, which includes the stylesheet's padding and
+        border. A font-metrics estimate missed those and still clipped.
+        """
+        from PyQt6.QtWidgets import QPushButton
+        for text in factory.BUTTON_LABELS:
+            for role in ("primary", "danger"):
+                with self.subTest(f"{text} {role}"):
+                    probe = QPushButton(text)
+                    probe.setProperty("role", role)
+                    probe.ensurePolished()
+                    self.assertLessEqual(probe.sizeHint().width(),
+                                         factory.button_width())
 
     def test_the_window_never_narrows_below_the_preferred_width(self):
         self.assertGreaterEqual(factory.window_width(), factory.WINDOW_W)

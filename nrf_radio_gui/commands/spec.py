@@ -221,6 +221,19 @@ class Command:
     # True when the effect is permanent. OTP writes cannot be undone.
     permanent: bool = False
 
+    @property
+    def warning(self):
+        """What an operator must know before pressing this, or empty.
+
+        Derived from the flags rather than stored, so a command cannot be marked
+        permanent without the warning following it.
+        """
+        if self.permanent:
+            return "Permanent. OTP cannot be rewritten, reversed, or written again."
+        if self.resets_config:
+            return "Discards every configuration parameter. Configure after this."
+        return ""
+
     def render(self, prefix, values=()):
         """Build the line to send. `prefix` is "" for the root registry."""
         parts = [f"{prefix} {self.name}".strip() if prefix else self.name]
