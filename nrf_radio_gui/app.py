@@ -43,8 +43,9 @@ from nrf_radio_gui.transport import Transport
 from nrf_radio_gui.widgets.command_tab import CommandTab
 from nrf_radio_gui.widgets.ficr_tab import FicrTab
 
-# The row width budget is derived from this, so it lives in one place.
-from nrf_radio_gui.widgets.factory import WINDOW_W
+# The row width budget is derived from the same place, and window_width() grows
+# past WINDOW_W when a large UI font needs it.
+from nrf_radio_gui.widgets.factory import WINDOW_W, window_width
 
 WINDOW_H = 760
 
@@ -148,7 +149,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("nRF Radio Test")
-        self.resize(WINDOW_W, WINDOW_H)
+        self.resize(window_width(), WINDOW_H)
 
         self.devices = ()
         self.probes = ()

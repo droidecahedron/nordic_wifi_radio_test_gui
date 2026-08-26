@@ -74,23 +74,41 @@ class TestLabelWidth(unittest.TestCase):
     def test_label_never_drops_below_its_floor(self):
         self.assertGreaterEqual(label_width(), factory.LABEL_MIN_W)
 
-    def test_a_wider_font_widens_the_label_instead_of_clipping(self):
-        """The Windows regression, reproduced by forcing a wider font."""
+    def test_a_wider_font_widens_the_window_instead_of_clipping(self):
+        """The Windows case: a bigger UI font must not squeeze the row.
+
+        Scales the font actually in use rather than naming families. Naming
+        "DejaVu Sans" got an unpredictable substitute on the Windows runner,
+        which measured the longest name at 666 px and left 56 px per argument.
+        """
         names = factory._command_names()
-        for family, size in (("DejaVu Sans", 10), ("Noto Sans", 10), ("DejaVu Sans", 14)):
-            with self.subTest(f"{family} {size}pt"):
-                metrics = QFontMetrics(QFont(family, size))
-                widest = max(metrics.horizontalAdvance(n) for n in names)
-                derived = max(factory.LABEL_MIN_W, widest + factory.LABEL_PAD)
-                self.assertGreaterEqual(derived, widest,
+        base = QLabel().font()
+        start = base.pointSize() if base.pointSize() > 0 else 9
+        for scale in (1, 2, 3, 4):
+            with self.subTest(f"{start * scale}pt"):
+                font = QFont(base)
+                font.setPointSize(start * scale)
+                widest = max(QFontMetrics(font).horizontalAdvance(n) for n in names)
+                label = max(factory.LABEL_MIN_W, widest + factory.LABEL_PAD)
+                self.assertGreaterEqual(label, widest,
                                         "label must cover the widest name")
-                # And the row must still fit once the label has taken its share.
-                fixed = (derived + factory.BUTTON_W
+
+                fixed = (label + factory.BUTTON_W
                          + factory.SPACING * (factory.MAX_ARGS + 1)
                          + factory.MARGINS + factory.SCROLLBAR_W)
-                spare = (factory.WINDOW_W - fixed) // factory.MAX_ARGS
-                self.assertGreaterEqual(spare, factory.ARG_MIN_W,
-                                        "argument column squeezed below its floor")
+                required = fixed + factory.MAX_ARGS * factory.ARG_MIN_W
+                window = max(factory.WINDOW_W, required)
+                spare = (window - fixed) // factory.MAX_ARGS
+                # The window grows to hold the row rather than the argument
+                # column shrinking below what a value needs.
+                self.assertGreaterEqual(spare, factory.ARG_MIN_W)
+                self.assertLessEqual(fixed + factory.MAX_ARGS * spare, window)
+
+    def test_the_window_never_narrows_below_the_preferred_width(self):
+        self.assertGreaterEqual(factory.window_width(), factory.WINDOW_W)
+
+    def test_a_three_argument_row_fits_the_window_it_opens_at(self):
+        self.assertLessEqual(row_width(factory.MAX_ARGS), factory.window_width())
 
 
 class TestWidgetChoice(unittest.TestCase):

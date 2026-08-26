@@ -42,7 +42,8 @@ from nrf_radio_gui.commands.spec import (
     Text,
 )
 
-# app.py imports this, so the window and the budget cannot drift apart.
+# Preferred window width. A large UI font can need more, so window_width() is
+# what app.py opens at and what the budget is measured against.
 WINDOW_W = 1000
 # The label column is measured, not fixed. A hard-coded width is a measurement of
 # one platform's font: 232 px fits the longest name in Sans Serif 9pt here, and
@@ -97,10 +98,27 @@ def _fixed(count):
             + MARGINS + SCROLLBAR_W)
 
 
+def required_width(count=None):
+    """Narrowest window that still fits a row without squeezing its arguments.
+
+    A 14pt UI font measured the longest command name at 666 px on a Windows
+    runner, which leaves 56 px per argument in a 1000 px window. Returning the
+    floor anyway would overflow the row and hide the Send button behind a
+    horizontal scroll bar, which is the fault the budget exists to prevent.
+    """
+    count = MAX_ARGS if count is None else max(1, count)
+    return _fixed(count) + count * ARG_MIN_W
+
+
+def window_width():
+    """Width to open at: the preferred one, or wider when the font demands it."""
+    return max(WINDOW_W, required_width())
+
+
 def arg_width(count=None):
     """Width for each argument widget, given what the label left over."""
     count = MAX_ARGS if count is None else max(1, count)
-    spare = (WINDOW_W - _fixed(count)) // count
+    spare = (window_width() - _fixed(count)) // count
     return max(ARG_MIN_W, min(ARG_MAX_W, spare))
 
 
@@ -110,7 +128,7 @@ def row_width(count):
 
 
 def budget():
-    return WINDOW_W
+    return window_width()
 
 
 def fits(count):
