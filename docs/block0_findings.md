@@ -420,10 +420,18 @@ usb             { device{...}, interfaces[], manufacturer, osDevicePath,
 > its own `serialPorts` key. Match field labels on word boundaries or the port
 > list fills with trait names.
 
-> `devkit.deviceFamily` reports `NRF54H_FAMILY` for the PCA10175 and is the only
-> family field in the payload. Board identity is more reliably read from
-> `devkit.boardVersion` — PCA10175 is the nRF54H20 DK and PCA10184 the nRF54LM20
-> DK, per `nrf/doc/nrf/app_dev/board_names.rst`.
+> `devkit.deviceFamily` is accurate but coarse: `NRF54H_FAMILY` for the PCA10175
+> and `NRF54L_FAMILY` for the PCA10184. It names a family, never a part, so board
+> identity comes from `devkit.boardVersion` — PCA10175 is the nRF54H20 DK and
+> PCA10184 the nRF54LM20 DK, per `nrf/doc/nrf/app_dev/board_names.rst`.
+
+> The JSON zero-pads serial numbers to 12 digits, `001051810810`, while the text
+> output and the `--serial-number` argument both take the unpadded `1051810810`.
+> Feed the padded form straight back and you are relying on nrfutil to normalise
+> it. Strip the padding.
+
+> `nrfutil device list` exits 0 with no kits attached, so an empty device array is
+> not an error condition.
 
 # Handoff "Not verified" table, resolved
 
