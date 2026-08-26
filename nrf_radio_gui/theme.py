@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-"""Dark palette and stylesheet.
+"""Palette and stylesheet, keyed to nRF Connect for Desktop.
 
 Colours are sampled, not invented. They come out of nRF Connect for Desktop
 5.3.2 — `nrfconnect-5.3.2-x86_64.AppImage`, `resources/app.asar`, which declares
@@ -13,35 +13,50 @@ its own CSS custom properties:
     --info:    #17a2b8    --warning: #ffc107    --dark:    #37474f
     --gray:    #546e7a    --light:   #cfd8dc
 
-The greys are the Material blue-grey ramp, and the app uses all of it, #263238
-through #eceff1. #00a9ce is by far the most frequent single colour in the bundle,
-so it is the accent here too.
+The greys are the Material blue-grey ramp. `#00a9ce` is the most frequent single
+colour in the bundle, so it is the accent here too.
+
+This is a light theme because the app it borrows from is a light app. Counting
+`background-color` uses in the same bundle, light surfaces outnumber dark ones
+about two to one — `#cfd8dc` 15, `#ffffff` 5, `#eceff1` 4, against `#37474f` 9 and
+`#263238` 3. An earlier version of this file built a dark theme from the same
+values, which read as black chrome with dim grey controls and looked nothing like
+the tool it sits next to.
 
 > `QLabel` needs `background: transparent` set explicitly. QLabel is a QWidget,
 > so a background rule on QWidget paints every caption with the panel colour and
-> command names end up looking like editable fields. This is the single most
-> visible styling mistake available here, and it is invisible in a unit test —
-> render the window offscreen and look at the PNG.
+> command names end up looking like input fields.
+
+> `QStatusBar` needs its child QLabel given a colour back. `showMessage()` puts
+> the text in one, and the transparent-QLabel rule above strips the colour along
+> with the background, leaving the status bar blank.
+
+Both of those are invisible to a unit test. Render the window offscreen and look
+at the PNG after any change here.
 """
 
-# Material blue-grey, as used by nRF Connect for Desktop.
-BG = "#263238"          # 900, window
-SURFACE = "#2f3d44"     # between 900 and 800, panels
-SURFACE_RAISED = "#37474f"  # 800, --dark, inputs and headers
-BORDER = "#455a64"      # 700
-BORDER_LIGHT = "#546e7a"  # 600, --gray
-TEXT = "#eceff1"        # 50
-TEXT_MUTED = "#b0bec5"  # 200
-TEXT_FAINT = "#78909c"  # 400
+# Material blue-grey, light end, as nRF Connect for Desktop uses it.
+BG = "#eceff1"              # 50, window
+SURFACE = "#ffffff"         # panels and group boxes
+SURFACE_RAISED = "#ffffff"  # inputs
+SURFACE_SUNK = "#f7f9fa"    # log pane, read-only areas
+BORDER = "#cfd8dc"          # 100, --light
+BORDER_LIGHT = "#b0bec5"    # 200, stronger edge on controls
+TEXT = "#263238"            # 900, body text
+TEXT_MUTED = "#546e7a"      # 600, --gray
+TEXT_FAINT = "#90a4ae"      # 300, disabled
 
-ACCENT = "#00a9ce"      # --primary, Nordic blue
-ACCENT_HOVER = "#1abbdd"
-ACCENT_PRESSED = "#0090b0"
+ACCENT = "#00a9ce"          # --primary
+ACCENT_HOVER = "#00bce4"
+ACCENT_PRESSED = "#0089a8"
+# Dark text on the accent, not white. #00a9ce against white is about 2.6:1, which
+# fails AA; against #263238 it is roughly 5.2:1, which passes.
+ON_ACCENT = "#0b2027"
 
-SUCCESS = "#4caf50"     # --success
-WARNING = "#ffc107"     # --warning
-DANGER = "#f44336"      # --danger
-INFO = "#17a2b8"        # --info
+SUCCESS = "#388e3c"         # --success darkened for contrast on white
+WARNING = "#b26a00"         # --warning darkened; #ffc107 on white is unreadable
+DANGER = "#d32f2f"          # --danger darkened
+INFO = "#17a2b8"            # --info
 
 MONO = "Menlo, Consolas, 'DejaVu Sans Mono', monospace"
 
@@ -49,7 +64,7 @@ MONO = "Menlo, Consolas, 'DejaVu Sans Mono', monospace"
 STATE_COLOURS = {
     "ready": SUCCESS,
     "no shell": WARNING,
-    "unreachable": TEXT_FAINT,
+    "unreachable": TEXT_MUTED,
     "error": DANGER,
 }
 
@@ -127,7 +142,7 @@ QTabBar::tab:hover:!selected {{
 }}
 
 QPushButton {{
-    background: {SURFACE_RAISED};
+    background: {SURFACE};
     color: {TEXT};
     border: 1px solid {BORDER_LIGHT};
     border-radius: 4px;
@@ -136,43 +151,49 @@ QPushButton {{
 }}
 QPushButton:hover {{
     border-color: {ACCENT};
-    color: {TEXT};
+    color: {ACCENT_PRESSED};
 }}
 QPushButton:pressed {{
-    background: {BORDER};
+    background: {BG};
 }}
 QPushButton:disabled {{
     color: {TEXT_FAINT};
     border-color: {BORDER};
-    background: {SURFACE};
+    background: {BG};
 }}
 QPushButton[role="primary"] {{
     background: {ACCENT};
-    border-color: {ACCENT};
-    color: {BG};
+    border-color: {ACCENT_PRESSED};
+    color: {ON_ACCENT};
     font-weight: 600;
 }}
 QPushButton[role="primary"]:hover {{
     background: {ACCENT_HOVER};
-    border-color: {ACCENT_HOVER};
 }}
 QPushButton[role="primary"]:pressed {{
     background: {ACCENT_PRESSED};
+    color: {SURFACE};
 }}
-/* Anything that writes OTP. Permanent, so it should not look like Send. */
+QPushButton[role="primary"]:disabled {{
+    background: {BORDER};
+    border-color: {BORDER};
+    color: {TEXT_FAINT};
+}}
+/* Anything that writes OTP. Permanent, so it must not look like Send. */
 QPushButton[role="danger"] {{
-    background: {SURFACE_RAISED};
+    background: {SURFACE};
     border-color: {DANGER};
     color: {DANGER};
     font-weight: 600;
 }}
 QPushButton[role="danger"]:hover {{
     background: {DANGER};
-    color: {TEXT};
+    color: {SURFACE};
 }}
 QPushButton[role="danger"]:disabled {{
     border-color: {BORDER};
     color: {TEXT_FAINT};
+    background: {BG};
 }}
 
 QLineEdit, QSpinBox, QComboBox {{
@@ -182,37 +203,42 @@ QLineEdit, QSpinBox, QComboBox {{
     border-radius: 4px;
     padding: 4px 6px;
     selection-background-color: {ACCENT};
-    selection-color: {BG};
+    selection-color: {ON_ACCENT};
 }}
 QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{
     border-color: {ACCENT};
 }}
+QLineEdit:disabled, QSpinBox:disabled, QComboBox:disabled {{
+    background: {BG};
+    color: {TEXT_FAINT};
+}}
 QLineEdit[state="invalid"] {{
     border-color: {DANGER};
+    background: #fdf3f3;
 }}
 QComboBox::drop-down {{
     border: none;
     width: 18px;
 }}
 QComboBox QAbstractItemView {{
-    background: {SURFACE_RAISED};
+    background: {SURFACE};
     color: {TEXT};
     border: 1px solid {BORDER_LIGHT};
     selection-background-color: {ACCENT};
-    selection-color: {BG};
+    selection-color: {ON_ACCENT};
 }}
-/* Qt draws no arrow glyph unless given an image, so a bare button is an
- * invisible sliver. Render them as two stacked blocks instead, wide enough to
- * hit, and let the keyboard and wheel do the real work. */
+
+/* Qt draws no arrow glyph without an image, so a bare button is an invisible
+ * sliver. Two stacked blocks, wide enough to hit. */
 QSpinBox::up-button, QSpinBox::down-button {{
-    background: {BORDER};
-    border-left: 1px solid {BORDER_LIGHT};
+    background: {BG};
+    border-left: 1px solid {BORDER};
     width: 16px;
 }}
 QSpinBox::up-button {{
     subcontrol-origin: border;
     subcontrol-position: top right;
-    border-bottom: 1px solid {BORDER_LIGHT};
+    border-bottom: 1px solid {BORDER};
     border-top-right-radius: 3px;
 }}
 QSpinBox::down-button {{
@@ -223,32 +249,16 @@ QSpinBox::down-button {{
 QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
     background: {ACCENT};
 }}
-QSpinBox::up-arrow {{
-    image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-bottom: 5px solid {TEXT_MUTED};
-    width: 0;
-    height: 0;
-}}
-QSpinBox::down-arrow {{
-    image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid {TEXT_MUTED};
-    width: 0;
-    height: 0;
-}}
 
 QPlainTextEdit, QTextEdit {{
-    background: #1e282d;
-    color: {TEXT_MUTED};
+    background: {SURFACE_SUNK};
+    color: {TEXT};
     border: 1px solid {BORDER};
     border-radius: 4px;
     font-family: {MONO};
     font-size: 12px;
     selection-background-color: {ACCENT};
-    selection-color: {BG};
+    selection-color: {ON_ACCENT};
 }}
 
 QScrollArea {{
@@ -268,7 +278,7 @@ QScrollBar::handle {{
     min-width: 24px;
 }}
 QScrollBar::handle:hover {{
-    background: {TEXT_FAINT};
+    background: {TEXT_MUTED};
 }}
 QScrollBar::add-line, QScrollBar::sub-line {{
     height: 0;
@@ -279,7 +289,7 @@ QScrollBar::add-page, QScrollBar::sub-page {{
 }}
 
 QStatusBar {{
-    background: {SURFACE_RAISED};
+    background: {SURFACE};
     color: {TEXT_MUTED};
     border-top: 1px solid {BORDER};
     min-height: 22px;
@@ -288,8 +298,7 @@ QStatusBar::item {{
     border: none;
 }}
 /* showMessage() puts the text in a child QLabel, and the transparent-QLabel
- * rule above strips its colour along with its background. Give it one back or
- * the status bar renders empty. */
+ * rule above strips its colour along with its background. */
 QStatusBar QLabel {{
     background: transparent;
     color: {TEXT_MUTED};
@@ -297,9 +306,9 @@ QStatusBar QLabel {{
 }}
 
 QToolTip {{
-    background: {SURFACE_RAISED};
-    color: {TEXT};
-    border: 1px solid {ACCENT};
+    background: {TEXT};
+    color: {SURFACE};
+    border: 1px solid {TEXT};
     padding: 4px;
 }}
 
