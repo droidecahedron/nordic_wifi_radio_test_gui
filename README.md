@@ -12,63 +12,50 @@ Drive the nRF Connect SDK [radio test shells](https://nrfconnectdocs.nordicsemi.
 - `nRF54LM20 DK` (PCA10184)
 - `nRF7002-EB II` (PCA63571)
 
+### Software
+- `nrfutil 8.2.1` with the `device` subcommand on `PATH`
+- `nRF Connect SDK v3.4.0`, only to rebuild the firmware
+
 > [!NOTE]
 > Nothing is keyed to that board. The tool asks the kit which commands it has, so
 > any image presenting the radio test shell on a VCOM will drive. An nRF54L15 DK
 > works, and so do nRF71 and coex builds.
 
-### Software
-- `nRF Connect SDK v3.4.0` for the firmware
-- `Python 3.12`
-- `PyQt6 6.11.0`
-- `pyserial 3.5`
-- `nrfutil 8.2.1` with the `device` subcommand on `PATH`
-
-> [!NOTE]
-> `nrfutil` enumerates kits and backs the Flash button. Driving an already
-> flashed kit needs only the serial port.
-
 ## Install
 
-```
-git clone git@github.com:droidecahedron/nordic_wifi_radio_test_gui.git
-cd nordic_wifi_radio_test_gui
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python -m nrf_radio_gui
-```
+Download one file and run it. No clone, no Python, no venv.
 
-Windows uses `.venv\Scripts\python.exe`. Linux serial access needs
-`sudo usermod -aG dialout $USER`, then a fresh login.
+| platform | file | first run |
+| --- | --- | --- |
+| Windows | `nrf-radio-test-windows-x86_64.exe` | double-click. SmartScreen: More info, Run anyway |
+| macOS Apple silicon | `nrf-radio-test-macos-arm64.app.zip` | unzip, right-click Open |
+| macOS Intel | `nrf-radio-test-macos-x86_64.app.zip` | unzip, right-click Open |
+| Linux | `nrf-radio-test-linux-x86_64` | `chmod +x`, then run |
 
-> [!IMPORTANT]
-> Run `.venv/bin/python`. Plain `python3 -m nrf_radio_gui` picks the system
-> interpreter and fails with `ModuleNotFoundError: No module named 'PyQt6'`.
-
-> [!NOTE]
-> Ubuntu 24.04 on X11 needs `sudo apt install libxcb-cursor0` for Qt 6 to load
-> its `xcb` plugin. Wayland selects its own plugin and never asks.
-
-## Prebuilt executables
-
-PyInstaller has no cross-compile, so [CI](.github/workflows/build.yml) builds one
-per platform: `linux-x86_64`, `windows-x86_64`, `macos-arm64`, `macos-x86_64`.
-
-Verify a download against a kit:
+One binary per platform in [Releases](../../releases), since PyInstaller has no
+cross-compile. Verify a download against a kit:
 
 ```
 nrf-radio-test --selftest --serial 1051810810
 ```
 
 > [!NOTE]
-> Builds are unsigned. macOS blocks the first open until it is cleared under
-> Privacy & Security, and Windows SmartScreen warns.
+> `nrfutil` backs kit enumeration and the Flash button. Driving an already
+> flashed kit needs only the serial port.
+
+> [!NOTE]
+> Unsigned, so the first launch is blocked. macOS also accepts
+> `xattr -d com.apple.quarantine <file>`. No sandbox flag is needed; these are
+> plain executables rather than Electron apps.
+> The Linux build links its runner's glibc, Ubuntu 22.04, so it needs 22.04 or
+> newer. An AppImage would not change that, since it bundles no libc.
+> Serial access on Linux wants `sudo usermod -aG dialout $USER` and a fresh login.
 
 ## Firmware
 
 `firmware/` holds a prebuilt nRF54LM20 DK image; **Flash** programs it.
 `firmware/README.md` has the build command and its two traps: fetch the nRF70
-blobs first, and set `CONFIG_NRFX_GPPI=y` or `radio_test.c` fails to link.
+blobs first, and `CONFIG_NRFX_GPPI=y` or `radio_test.c` will not link.
 
 ## Usage
 
@@ -82,9 +69,8 @@ The window scans on launch.
 | **Flash** | program the bundled hex onto the selected kit |
 | state chip | green once a shell answered, otherwise the reason |
 
-One tab per shell registry. `43 of 55 on this image` means the table holds every
-command the SDK declares and the probe found 43. **Send** renders the command
-from the table, and replies land in the log pane.
+One tab per shell registry. `43 of 55 on this image` means the table declares 55
+and the probe found 43. **Send** renders the command; replies land in the log.
 
 
 ## Software description
@@ -115,8 +101,8 @@ Commands are data. Adding a subcommand is a table row, never widget code.
 | headless | `QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover tests` | 137 tests, no hardware, no display |
 | bench | `.venv/bin/python tools/bench_check.py --serial 1051810810` | 27 checks on a real kit, reads only |
 
-Both exit non-zero on failure. Hardware checks stay out of `unittest` on
-purpose, since one that passes with no kit attached is worse than no test.
+Both exit non-zero on failure. Hardware checks stay out of `unittest`, since one
+that passes with no kit attached is worse than no test.
 
 > [!IMPORTANT]
 > Pass `--serial`. With two DKs attached it refuses to guess. Probing the wrong
@@ -148,3 +134,34 @@ purpose, since one that passes with no kit attached is worse than no test.
 - [short-range Radio test](https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/peripheral/radio_test/README.html)
 
 Each file in `nrf_radio_gui/commands/` names its in-tree source at the top.
+
+## Building from source
+
+Only needed to change the tool. Users download a binary instead.
+
+Needs `Python 3.12`, and pip pulls `PyQt6 6.11.0` and `pyserial 3.5`.
+
+```
+git clone git@github.com:droidecahedron/nordic_wifi_radio_test_gui.git
+cd nordic_wifi_radio_test_gui
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m nrf_radio_gui
+```
+
+Windows uses `.venv\Scripts\python.exe`.
+
+> [!IMPORTANT]
+> Run `.venv/bin/python`. Plain `python3 -m nrf_radio_gui` picks the system
+> interpreter and fails with `ModuleNotFoundError: No module named 'PyQt6'`.
+> Ubuntu 24.04 on X11 also needs `sudo apt install libxcb-cursor0` for Qt 6 to
+> load its `xcb` plugin. Wayland selects its own plugin and never asks.
+
+Build a standalone binary for the platform you are on:
+
+```
+.venv/bin/pyinstaller nrf_radio_gui.spec --noconfirm
+```
+
+`NRF_RADIO_GUI_CONSOLE=1` builds a console variant, so a traceback is visible in
+a frozen Windows or macOS build.

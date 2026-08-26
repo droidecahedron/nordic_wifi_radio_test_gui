@@ -55,7 +55,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # A PyInstaller binary links the build machine's glibc, so the
+          # oldest supported runner reaches the most users. AppImage would not
+          # change this; it bundles no libc either.
+          - os: ubuntu-22.04
             name: linux-x86_64
           - os: windows-latest
             name: windows-x86_64
@@ -100,10 +103,25 @@ jobs:
           test -x "$exe" || { echo "no executable at $exe"; ls -R dist; exit 1; }
           "$exe" --version
 
+      # A .app is a directory tree. upload-artifact would flatten its
+      # permissions, so zip it first and keep the executable bit.
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p out
+          case "$RUNNER_OS" in
+            Windows) cp dist/nrf-radio-test.exe "out/nrf-radio-test-${{ matrix.name }}.exe" ;;
+            macOS)   ditto -c -k --keepParent "dist/nrf-radio-test.app" \
+                       "out/nrf-radio-test-${{ matrix.name }}.app.zip"
+                     cp dist/nrf-radio-test "out/nrf-radio-test-${{ matrix.name }}" ;;
+            Linux)   cp dist/nrf-radio-test "out/nrf-radio-test-${{ matrix.name }}" ;;
+          esac
+          ls -lh out
+
       - uses: actions/upload-artifact@v4
         with:
           name: nrf-radio-test-${{ matrix.name }}
-          path: dist/*
+          path: out/*
           if-no-files-found: error
 
   release:
@@ -118,31 +136,36 @@ jobs:
         with:
           path: artifacts
 
-      - name: Name each build after its platform
+      - name: Collect
         run: |
           mkdir -p release
-          for dir in artifacts/*/; do
-            platform="$(basename "$dir" | sed 's/^nrf-radio-test-//')"
-            for file in "$dir"*; do
-              base="$(basename "$file")"
-              case "$base" in
-                *.exe) cp "$file" "release/${base%.exe}-${platform}.exe" ;;
-                *)     cp "$file" "release/${base}-${platform}" ;;
-              esac
-            done
-          done
+          find artifacts -type f -exec cp {} release/ \;
+          chmod +x release/* || true
           ls -lh release
 
       - uses: softprops/action-gh-release@v2
         with:
           files: release/*
           body: |
-            Built by CI on each platform; PyInstaller does not cross-compile.
+            Download one file and run it. No clone, no Python, no venv.
 
-            These are not code-signed. macOS will refuse to open the download
-            until it is cleared in System Settings > Privacy & Security, and
-            SmartScreen will warn on Windows.
+            | platform | file | notes |
+            | --- | --- | --- |
+            | Windows | `nrf-radio-test-windows-x86_64.exe` | double-click |
+            | macOS Apple silicon | `nrf-radio-test-macos-arm64.app.zip` | unzip, then right-click Open |
+            | macOS Intel | `nrf-radio-test-macos-x86_64.app.zip` | unzip, then right-click Open |
+            | Linux | `nrf-radio-test-linux-x86_64` | `chmod +x`, then run |
 
-            Verify a download against a kit with:
+            `nrfutil` still has to be on PATH for kit enumeration and for the
+            Flash button. Driving an already flashed kit needs only the port.
+
+            Verify a download against a kit:
 
                 nrf-radio-test --selftest --serial <SN>
+
+            Unsigned, so the first launch is blocked. On macOS right-click and
+            Open, or `xattr -d com.apple.quarantine <file>`. On Windows choose
+            More info then Run anyway.
+
+            The Linux binary links the glibc of its build runner, Ubuntu 22.04,
+            so it needs 22.04 or newer.

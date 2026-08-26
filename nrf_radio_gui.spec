@@ -26,6 +26,7 @@ shell is driven over a plain serial port. It is looked up on PATH.
 """
 
 import os
+import sys
 from pathlib import Path
 
 CONSOLE = os.environ.get("NRF_RADIO_GUI_CONSOLE", "") not in ("", "0", "false")
@@ -92,3 +93,19 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+# macOS needs a .app for a double-clickable download. The bare Mach-O binary
+# from EXE above still works from a terminal, and both ship.
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name=f"{NAME}.app",
+        icon=None,
+        bundle_identifier="no.nordicsemi.nrf-radio-test",
+        info_plist={
+            "CFBundleShortVersionString": "0.1.0",
+            "NSHighResolutionCapable": True,
+            # No entry here requests camera, microphone or location. The tool
+            # only opens a serial port.
+        },
+    )
