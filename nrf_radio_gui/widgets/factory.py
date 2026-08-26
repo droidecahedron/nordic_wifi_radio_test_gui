@@ -48,8 +48,8 @@ WINDOW_W = 1000
 # `start_duty_cycle_modulated_tx` to `start_duty_cycle_modulated`, which reads as
 # a different command. A clipped command name is worse than a narrow field.
 LABEL_W = 232
-ARG_MIN_W = 110
-# Trimmed from 220 so a three-argument row still fits once LABEL_W grew.
+# Every argument widget is exactly this wide, so the column lines up. Trimmed
+# from 220 so a three-argument row still fits once LABEL_W grew.
 ARG_MAX_W = 200
 BUTTON_W = 90
 SPACING = 6
@@ -83,8 +83,9 @@ def _combo(pairs, tip=""):
     box = QComboBox()
     for value, label in pairs:
         box.addItem(f"{value} - {label}", userData=str(value))
-    box.setMinimumWidth(ARG_MIN_W)
-    box.setMaximumWidth(ARG_MAX_W)
+    # Fixed, not a range: each combo would otherwise size to its own longest
+    # item and the argument column would come out ragged.
+    box.setFixedWidth(ARG_MAX_W)
     if tip:
         box.setToolTip(tip)
     return box
@@ -92,8 +93,7 @@ def _combo(pairs, tip=""):
 
 def _line(text="", tip=""):
     edit = QLineEdit(text)
-    edit.setMinimumWidth(ARG_MIN_W)
-    edit.setMaximumWidth(ARG_MAX_W)
+    edit.setFixedWidth(ARG_MAX_W)
     if tip:
         edit.setToolTip(tip)
     return edit
@@ -118,8 +118,7 @@ def widget_for(arg):
             box.addItem(label, userData=arg.sentinel)
         for value in arg.values:
             box.addItem(str(value), userData=str(value))
-        box.setMinimumWidth(ARG_MIN_W)
-        box.setMaximumWidth(ARG_MAX_W)
+        box.setFixedWidth(ARG_MAX_W)
         if tip:
             box.setToolTip(tip)
         return box
@@ -132,8 +131,7 @@ def widget_for(arg):
                 spin.setValue(arg.default)
             if arg.unit:
                 spin.setSuffix(f" {arg.unit}")
-            spin.setMinimumWidth(ARG_MIN_W)
-            spin.setMaximumWidth(ARG_MAX_W)
+            spin.setFixedWidth(ARG_MAX_W)
             if tip:
                 spin.setToolTip(tip)
             return spin
@@ -212,10 +210,15 @@ class CommandRow(QWidget):
         return self.command.render(self.prefix, self.values())
 
     def _send(self):
+        """Validate, mark up anything rejected, then hand the row to the owner.
+
+        The row passes itself rather than just the rendered line, so the owner
+        never has to work out which row a click came from.
+        """
         found = self.errors()
         for arg, control in zip(self.command.args, self.widgets):
             mark(control, arg.name in found)
         if found:
-            self._on_send(None, found)
+            self._on_send(self, None, found)
             return
-        self._on_send(self.line(), {})
+        self._on_send(self, self.line(), {})
