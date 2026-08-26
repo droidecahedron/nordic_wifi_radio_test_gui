@@ -94,23 +94,31 @@ def split(raw, sent):
     The shell echoes what it was sent, so the echo is dropped when it matches.
     Comparing rather than dropping the first line unconditionally keeps output
     that arrives before the echo, which happens on a busy log backend.
+
+    Leading whitespace is preserved. In a help listing the indentation is what
+    separates a subcommand line from a wrapped continuation of the previous
+    one's help text, and discovery relies on that to enumerate a registry.
     """
     output = []
     logs = []
     for line in clean(raw).split("\n"):
         line = _ORPHAN.sub("", line)
         line = _PARTIAL.sub("", line)
-        # A prompt can be glued to the front of real content.
+        # A prompt can be glued to the front of real content. Removing it leaves
+        # the gap behind, so drop that too — but only on lines that had one.
+        had_prompt = PROMPT in line
         while PROMPT in line:
             line = line.replace(PROMPT, "", 1)
-        line = line.strip()
+        if had_prompt:
+            line = line.lstrip()
+        line = line.rstrip()
         if not line:
             continue
         found = _LOG.search(line)
         if found:
             logs.append(LogLine(**found.groupdict()))
             continue
-        if line == sent.strip():
+        if line.strip() == sent.strip():
             continue
         output.append(line)
     return tuple(output), tuple(logs)
