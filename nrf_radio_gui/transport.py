@@ -45,7 +45,9 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 # read — and containing a bare `\x1b[8`, the head of a `\x1b[8D` cursor move that
 # the newline cut off. Neither matches _ANSI, so both need their own pass.
 _ORPHAN = re.compile(r"\A\[[0-9;]*[A-Za-z]")
-_PARTIAL = re.compile(r"\x1b\[?[0-9;]*\Z")
+# Whatever is left once complete sequences are gone: a truncated one, cut off by
+# the end of a read. The leading ESC is mandatory so this cannot match empty.
+_PARTIAL = re.compile(r"\x1b\[?[0-9;]*")
 # [00:02:31.285,348] <inf> wifi_nrf: The temperature is = 30 degree celsius
 _LOG = re.compile(
     r"\[(?P<stamp>\d\d:\d\d:\d\d\.\d+,\d+)\]\s+"
@@ -82,10 +84,17 @@ class Exchange:
 
 
 def clean(raw):
-    """Strip ANSI, normalise newlines. Prompt and echo are removed separately."""
+    """Strip ANSI, normalise newlines. Prompt and echo are removed separately.
+
+    Two passes, because a read can end part-way through an escape sequence and
+    the fragment left behind matches no complete-sequence pattern. Exchange.raw
+    goes through here, so skipping the second pass leaves escape bytes in
+    anything that displays it.
+    """
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8", "replace")
-    return _ANSI.sub("", raw).replace("\r\n", "\n").replace("\r", "\n")
+    text = _PARTIAL.sub("", _ANSI.sub("", raw))
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def split(raw, sent):
@@ -103,7 +112,6 @@ def split(raw, sent):
     logs = []
     for line in clean(raw).split("\n"):
         line = _ORPHAN.sub("", line)
-        line = _PARTIAL.sub("", line)
         # A prompt can be glued to the front of real content. Removing it leaves
         # the gap behind, so drop that too — but only on lines that had one.
         had_prompt = PROMPT in line
@@ -122,6 +130,18 @@ def split(raw, sent):
             continue
         output.append(line)
     return tuple(output), tuple(logs)
+
+
+def _matching(logs, expect):
+    """Log lines that belong to a command declaring `expect`.
+
+    With no `expect` every line is accepted, which is the old behaviour and the
+    right one for a command whose answer has no distinguishing wording.
+    """
+    if not expect:
+        return tuple(logs)
+    needle = expect.lower()
+    return tuple(l for l in logs if needle in l.text.lower())
 
 
 class Transport:
@@ -208,12 +228,20 @@ class Transport:
         self._maybe_pending = False
         self._drain()
 
-    def send(self, line, reply=Reply.NONE):
+    def send(self, line, reply=Reply.NONE, expect=""):
         """Send `line` and collect the answer according to `reply`.
 
         NONE and SYNC finish on an idle line after the prompt returns. DEFERRED
         keeps listening past the prompt until a log line arrives or
         DEFERRED_CAP_S elapses, because that is where the value is.
+
+        `expect` is text identifying this command's own deferred answer, from
+        Command.log_match. Deferred values arrive as unlabelled log lines long
+        after the prompt, so an answer abandoned by an earlier command is
+        otherwise indistinguishable from this one's — asking for a temperature
+        without waiting and then asking for a voltage puts the temperature in the
+        voltage's reply. With `expect` set, only matching lines are kept and a
+        stale one is discarded rather than misattributed.
         """
         if self._ser is None:
             raise RuntimeError("transport is not open")
@@ -253,11 +281,13 @@ class Transport:
             if not deferred:
                 break
             _, logs = split(b"".join(chunks), line)
-            if logs:
+            if _matching(logs, expect):
                 break
 
         raw = b"".join(chunks)
         output, logs = split(raw, line)
+        if expect:
+            logs = _matching(logs, expect)
         # Only a deferred command that did NOT produce its value leaves something
         # outstanding. Marking every setter and sync read as pending instead
         # charges each of them the full settle window, measured at 2.4 s.

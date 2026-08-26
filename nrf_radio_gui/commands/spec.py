@@ -209,6 +209,12 @@ class Command:
     # in. Documentation and an explanation for the operator; presence is decided
     # by probing the shell, never by this field or by the board name.
     gate: str = ""
+    # Text that identifies this command's own deferred answer, for a DEFERRED
+    # command only. Deferred values arrive as unlabelled log lines well after the
+    # prompt, so without something to match on, an abandoned answer from an
+    # earlier command is indistinguishable from this one's. The shell does name
+    # its readings — "The temperature is", "battery voltage is" — so use that.
+    log_match: str = ""
     # True when running this discards configuration. `init` resets every
     # parameter, so configure after init, never before.
     resets_config: bool = False

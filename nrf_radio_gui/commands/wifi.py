@@ -154,16 +154,21 @@ COMMANDS = (
 
     # REPLY: measured deferred. Prompt returns at ~151 ms, value arrives ~1050 ms
     # as an <inf> wifi_nrf log line. Prompt-return is not end-of-reply.
-    Command("get_temperature", (), "Read die temperature", reply=Reply.DEFERRED),
-    Command("get_voltage", (), "Read battery voltage", reply=Reply.DEFERRED),
-    Command("get_rf_rssi", (), "Read RF RSSI", reply=Reply.DEFERRED),
+    # log_match is how a reply is told apart from an earlier command's abandoned
+    # one. Strings are from the shell's own wording, measured on hardware.
+    Command("get_temperature", (), "Read die temperature", reply=Reply.DEFERRED,
+            log_match="temperature is"),
+    Command("get_voltage", (), "Read battery voltage", reply=Reply.DEFERRED,
+            log_match="voltage is"),
+    Command("get_rf_rssi", (), "Read RF RSSI", reply=Reply.DEFERRED,
+            log_match="RSSI value is"),
 
     Command("set_xo_val",
             (IntRange("xo", lo=0, hi=127),),
             "Set the crystal trim value", config_key="xo_val"),
     # REPLY: deferred, same shape as the getters above.
     Command("compute_optimal_xo_val", (), "Compute the optimal crystal trim",
-            reply=Reply.DEFERRED),
+            reply=Reply.DEFERRED, log_match="XO value is"),
 
     # REPLY: both synchronous, whole block lands before the prompt. get_stats is
     # ordinary command output rather than a log line.
