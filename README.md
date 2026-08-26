@@ -6,21 +6,29 @@ Drive the nRF Connect SDK [radio test shells](https://nrfconnectdocs.nordicsemi.
 
 *Note* : This is an unofficial pyqt wrapper for the sample.
 
-# Hardware
-`nRF54LM20 DK` (PCA10184) + `nRF7002-EB II` (PCA63571)
+## Requirements
 
+### Hardware
+- `nRF54LM20 DK` (PCA10184)
+- `nRF7002-EB II` (PCA63571)
+
+> [!NOTE]
 > Nothing is keyed to that board. The tool asks the kit which commands it has, so
 > any image presenting the radio test shell on a VCOM will drive. An nRF54L15 DK
-> works, and so does an nRF71 or coex build — those commands are in the tables
-> already, waiting for an image that has them.
+> works, and so do nRF71 and coex builds.
 
-# Software
-`nRF Connect SDK v3.4.0` for the firmware. Host side: Python 3.12, PyQt6 6.11.0,
-pyserial 3.5. `nrfutil` 8.2.1 with the `device` subcommand on `PATH`, needed for
-enumerating kits and for the Flash button — not for driving a kit you have
-already flashed.
+### Software
+- `nRF Connect SDK v3.4.0` for the firmware
+- `Python 3.12`
+- `PyQt6 6.11.0`
+- `pyserial 3.5`
+- `nrfutil 8.2.1` with the `device` subcommand on `PATH`
 
-# Install
+> [!NOTE]
+> `nrfutil` enumerates kits and backs the Flash button. Driving an already
+> flashed kit needs only the serial port.
+
+## Install
 
 ```
 git clone git@github.com:droidecahedron/nordic_wifi_radio_test_gui.git
@@ -30,83 +38,70 @@ python3 -m venv .venv
 .venv/bin/python -m nrf_radio_gui
 ```
 
-On Windows the interpreter is `.venv\Scripts\python.exe`; everything else is the
-same.
+Windows uses `.venv\Scripts\python.exe`. Linux serial access needs
+`sudo usermod -aG dialout $USER`, then a fresh login.
 
-> Use `.venv/bin/python`, not `python3`. Activating the venv works too, but a
-> plain `python3 -m nrf_radio_gui` picks the system interpreter, which has no
-> PyQt6, and fails with `ModuleNotFoundError: No module named 'PyQt6'`.
+> [!IMPORTANT]
+> Run `.venv/bin/python`. Plain `python3 -m nrf_radio_gui` picks the system
+> interpreter and fails with `ModuleNotFoundError: No module named 'PyQt6'`.
 
-> Ubuntu 24.04 on X11 also needs `sudo apt install libxcb-cursor0`, or Qt 6
-> cannot load its `xcb` platform plugin. On Wayland it is not needed — Qt selects
-> the wayland plugin and the missing library never comes up.
+> [!NOTE]
+> Ubuntu 24.04 on X11 needs `sudo apt install libxcb-cursor0` for Qt 6 to load
+> its `xcb` plugin. Wayland selects its own plugin and never asks.
 
-Serial access needs your user in `dialout` on Linux:
+## Prebuilt executables
+
+PyInstaller has no cross-compile, so [CI](.github/workflows/build.yml) builds one
+per platform: `linux-x86_64`, `windows-x86_64`, `macos-arm64`, `macos-x86_64`.
+
+Verify a download against a kit:
 
 ```
-sudo usermod -aG dialout $USER    # log out and back in
+nrf-radio-test --selftest --serial 1051810810
 ```
 
-# Firmware
+> [!NOTE]
+> Builds are unsigned. macOS blocks the first open until it is cleared under
+> Privacy & Security, and Windows SmartScreen warns.
 
-The tool drives a kit; it does not require you to build anything. A prebuilt
-image for the nRF54LM20 DK is in `firmware/`, and the **Flash** button programs
-it over `nrfutil`.
+## Firmware
 
-To build it yourself, `firmware/README.md` has the exact command and the two
-traps in it — the nRF70 blobs must be fetched first, and `CONFIG_NRFX_GPPI=y` is
-mandatory on the LM20 or `radio_test.c` will not link.
+`firmware/` holds a prebuilt nRF54LM20 DK image; **Flash** programs it.
+`firmware/README.md` has the build command and its two traps: fetch the nRF70
+blobs first, and set `CONFIG_NRFX_GPPI=y` or `radio_test.c` fails to link.
 
-# Usage
+## Usage
 
-The window scans on launch; there is nothing to press first.
+The window scans on launch.
 
-| control | what it does |
+| control | effect |
 | --- | --- |
-| **Kit** | which DK to talk to. Rescan is pinned to whatever is picked here |
+| **Kit** | which DK to talk to. Rescan follows this selection |
 | **Rescan** | re-enumerate and re-probe |
 | **Connect** | open or close the shell port |
-| **Flash** | program the bundled hex onto the picked kit |
-| state chip | green when a shell answered, otherwise why not |
+| **Flash** | program the bundled hex onto the selected kit |
+| state chip | green once a shell answered, otherwise the reason |
 
-Each tab is one shell registry. The count on the right reads `43 of 55 on this
-image`: the table holds every command the SDK declares, and the probe decided
-which of them this build actually has. The filter box narrows the list by name.
+One tab per shell registry. `43 of 55 on this image` means the table holds every
+command the SDK declares and the probe found 43. **Send** renders the command
+from the table, and replies land in the log pane.
 
-Clicking **Send** renders the command from the table and sends it. Replies land
-in the log pane below.
+## Testing
 
-# Testing
+| layer | command | covers |
+| --- | --- | --- |
+| headless | `QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover tests` | 135 tests, no hardware, no display |
+| bench | `.venv/bin/python tools/bench_check.py --serial 1051810810` | 27 checks on a real kit, reads only |
 
-Two layers, because they answer different questions.
+Both exit non-zero on failure. Hardware checks stay out of `unittest` on
+purpose, since one that passes with no kit attached is worse than no test.
 
-**Does the logic hold?** 135 tests, no hardware, no display:
+> [!IMPORTANT]
+> Pass `--serial`. With two DKs attached it refuses to guess. Probing the wrong
+> kit costs 1.5 s per silent port and its second VCOM reports an access error
+> that reads as a fault.
 
-```
-QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover tests
-```
-
-**Does it work on a kit?** One script, reads only — no OTP write, no
-transmitter:
-
-```
-.venv/bin/python tools/bench_check.py --serial 1051810810
-```
-
-27 checks: the shell answers inside the discovery budget, every command the
-tables claim is really present, `show_config` round-trips, `get_stats` is
-synchronous, the deferred readings arrive, a deferred value does not leak into
-the next command, and both failure wordings are what the code expects. Exits
-non-zero on failure, so it can gate a release.
-
-> Pass `--serial`. With more than one DK attached it refuses to guess, because
-> probing the wrong kit wastes 1.5 s per silent port and its second VCOM tends to
-> report an access error that reads as a fault.
-
-Hardware checks are deliberately not `unittest` cases. A hardware test that
-quietly passes when the hardware is absent is worse than no test.
-
-# Overview
+## Software description
 
 | file | responsibility |
 | --- | --- |
@@ -122,53 +117,32 @@ quietly passes when the hardware is absent is worse than no test.
 | `widgets/command_tab.py` | generic tab, `request()` and `extra_groups()` hooks |
 | `widgets/ficr_tab.py` | OTP writes behind typed confirmation |
 | `app.py` | window, wiring, the `send_command` funnel |
-| `tools/bench_check.py` | hardware verification |
-| `docs/block0_findings.md` | what the bench actually said |
+| `benchcheck.py` | hardware verification, also `--selftest` |
+| `docs/block0_findings.md` | what the bench measured |
 
-Commands are data. Adding a subcommand means adding a row to a table, not
-placing a widget.
+Commands are data. Adding a subcommand is a table row, never widget code.
 
-# Notes
+## Notes
 
 > [!NOTE]
-> Hard-won detail, not core to using the tool.
+> Bench detail. `docs/block0_findings.md` carries the measurements.
 
-A reply does not always end when the prompt comes back. `get_temperature`
-returns the prompt at 151 ms and the reading at about 1057 ms, as a deferred log
-line, so reading until the prompt gets you nothing from any readback command. An
-abandoned reading then lands in the *next* command's reply, which is why each
-deferred command carries a `log_match` string naming its own answer.
+| behaviour | consequence |
+| --- | --- |
+| `get_temperature` returns the prompt at 151 ms and its reading at ~1057 ms | reading until the prompt yields nothing from any readback command |
+| an abandoned reading lands in the following command's reply | every deferred command declares a `log_match` naming its own answer |
+| `tx_power` reads back 30 where docs say 0-24 | the table gives it no ceiling, since an invented bound blocks a working value |
+| `reg_domain` is `00`, a country code | `show_config` values stay strings; as an integer it becomes `0` |
+| `init` discards every configuration parameter | configure afterwards. The funnel confirms first |
+| OTP writes cannot be undone | each one is gated on typing the target field name |
+| the shell takes a byte address, `rpu_if.h` lists word offsets | `CALIB_XO` is word 76 and wants `0x130`. `commands/ficr.py` carries both |
+| presence is per-image | nRF54LM20 has 28 of 33 `output_power` steps and 9 of 12 data rates |
+| a failed probe learned nothing about the image | only a `READY` probe may hide anything, so a dead port shows every command |
 
-`tx_power` reads back 30 where the published range is 0-24, so the table gives it
-no ceiling. An invented bound blocks a value the device accepts.
-
-`reg_domain` is `00`, a country code. Everything from `show_config` stays a
-string; parsing that as an integer makes it `0`, a different thing to send back.
-
-`init` discards every configuration parameter, so configure after it. The funnel
-confirms before sending it: the natural order leaves a radio at defaults while
-the screen still shows what you typed.
-
-OTP writes are permanent, so every write is gated on typing the target field's
-name. The shell takes a byte address while `rpu_if.h` names fields by word
-offset, so `CALIB_XO` is word 76 but wants `0x130`. Pass the word offset and you
-program a field four times lower in the map. `commands/ficr.py` carries both
-numbers so nothing does that arithmetic by hand.
-
-Presence is per-image, never per-board. The FICR shell is compiled out under
-`CONFIG_NRF71_RADIO_TEST`, FEM commands need `CONFIG_FEM`, and nRF54LM20 has 28
-of the 33 `output_power` steps and 9 of the 12 data rates its source declares.
-Only a `READY` probe may hide anything; a probe that could not open the port
-learned nothing about the image, so it shows everything rather than stranding you
-in an empty window.
-
-`docs/block0_findings.md` has the measurements these came from.
-
-# Reference
+## Reference
 
 - [`wifi_radio_test` subcommands](https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/wifi/radio_test/single_domain/radio_test_subcommands.html)
 - [single-domain sample](https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/wifi/radio_test/single_domain/README.html)
 - [short-range Radio test](https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/peripheral/radio_test/README.html)
 
-In-tree sources for the three registries are named at the top of each file in
-`nrf_radio_gui/commands/`.
+Each file in `nrf_radio_gui/commands/` names its in-tree source at the top.
