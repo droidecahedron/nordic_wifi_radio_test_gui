@@ -77,8 +77,9 @@ class Worker(QObject):
         super().__init__()
         self._transport = None
 
-    @pyqtSlot()
-    def scan(self):
+    @pyqtSlot(str)
+    def scan(self, serial=""):
+        """Enumerate kits, then probe. `serial` pins probing to one of them."""
         try:
             devices = nrfutil.list_devices() if nrfutil.available() else ()
         except nrfutil.NrfutilError as err:
@@ -88,7 +89,9 @@ class Worker(QObject):
             self.noted.emit("no kits found")
             self.scanned.emit((), ())
             return
-        probes = discovery.scan(devices)
+        if len(devices) > 1 and not serial:
+            self.noted.emit(f"{len(devices)} kits attached; probing all of them")
+        probes = discovery.scan(devices, serial=serial or None)
         self.scanned.emit(devices, probes)
 
     @pyqtSlot(str)
@@ -108,13 +111,14 @@ class Worker(QObject):
             self._transport.close()
             self._transport = None
 
-    @pyqtSlot(str, object)
-    def send(self, line, reply):
+    @pyqtSlot(str, object, str)
+    def send(self, line, reply, expect=""):
         if self._transport is None:
             self.failed.emit("not connected")
             return
         try:
-            self.exchanged.emit(self._transport.send(line, reply or Reply.NONE))
+            self.exchanged.emit(
+                self._transport.send(line, reply or Reply.NONE, expect))
         except Exception as err:
             self.failed.emit(f"{line}: {err}")
 
@@ -134,10 +138,10 @@ class Worker(QObject):
 
 
 class MainWindow(QMainWindow):
-    _scan_requested = pyqtSignal()
+    _scan_requested = pyqtSignal(str)
     _connect_requested = pyqtSignal(str)
     _disconnect_requested = pyqtSignal()
-    _send_requested = pyqtSignal(str, object)
+    _send_requested = pyqtSignal(str, object, str)
     _flash_requested = pyqtSignal(str, str, str)
 
     def __init__(self):
@@ -175,7 +179,7 @@ class MainWindow(QMainWindow):
         self._start_worker()
         self._build_tabs(None)
         self.note(f"nrf_radio_gui {__version__}")
-        self._scan_requested.emit()
+        self._scan_requested.emit("")
 
     # -- construction -----------------------------------------------------
 
@@ -261,7 +265,10 @@ class MainWindow(QMainWindow):
                 self.note(f"cancelled: {line}")
                 return
         self.note(f"> {line}")
-        self._send_requested.emit(line, reply)
+        # log_match lets the transport tell this command's deferred answer apart
+        # from one abandoned by an earlier command.
+        self._send_requested.emit(line, reply,
+                                  command.log_match if command is not None else "")
 
     # -- slots ------------------------------------------------------------
 
@@ -319,10 +326,17 @@ class MainWindow(QMainWindow):
             self._set_status(device.label)
 
     def _rescan(self):
+        """Re-probe. Pinned to the picked kit once there is one to pick.
+
+        Probing a kit nobody asked about costs 1.5 s per silent port, and its
+        second VCOM tends to report an access error that reads as a fault.
+        """
+        device = self.device_box.currentData()
+        serial = device.serial if device is not None else ""
         self.rescan_button.setEnabled(False)
         self._set_status("scanning")
-        self.note("scanning")
-        self._scan_requested.emit()
+        self.note(f"scanning {serial or 'all kits'}")
+        self._scan_requested.emit(serial)
 
     def _toggle_connection(self):
         if self.connect_button.text() == "Disconnect":

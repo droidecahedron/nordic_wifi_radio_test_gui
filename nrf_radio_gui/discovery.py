@@ -149,15 +149,22 @@ def probe_port(port, opener=None):
         transport.close()
 
 
-def candidate_ports(devices=None):
+def candidate_ports(devices=None, serial=None):
     """Ports worth probing, best first.
 
     VCOM0 carried the shell on the nRF54LM20 DK and VCOM1 was silent, so VCOM0 is
     tried first — but VCOM1 is still offered, because that ordering is one
     board's habit rather than a rule.
+
+    `serial` narrows to one kit. A bench with two DKs enumerates in whatever
+    order nrfutil returns, so without it the first kit to answer wins — which is
+    fine when only one is running the radio test and wrong the moment both are.
     """
     if devices is None:
         devices = nrfutil.list_devices()
+    if serial:
+        wanted = str(serial).lstrip("0")
+        devices = [d for d in devices if d.serial.lstrip("0") == wanted]
     ordered = []
     for device in devices:
         for port in sorted(device.ports, key=lambda p: p.vcom):
@@ -165,14 +172,18 @@ def candidate_ports(devices=None):
     return tuple(ordered)
 
 
-def scan(devices=None, opener=None, stop_at_first=True):
+def scan(devices=None, opener=None, stop_at_first=True, serial=None):
     """Probe attached kits and return every Probe, READY ones first.
 
     With stop_at_first, probing halts once a shell is found. VCOM1 on a kit whose
     VCOM0 already answered is not worth the 1.5 s.
+
+    Pass `serial` to pin the sweep to one kit. Probing a kit that is not the
+    target costs 1.5 s per silent port and can leave a second VCOM reporting an
+    access error, which reads as a fault when it is only a port nobody wanted.
     """
     results = []
-    for port, device in candidate_ports(devices):
+    for port, device in candidate_ports(devices, serial=serial):
         probe = probe_port(port, opener=opener)
         probe.device = device
         results.append(probe)
