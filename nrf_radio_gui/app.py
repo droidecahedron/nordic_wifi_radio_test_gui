@@ -43,8 +43,9 @@ from nrf_radio_gui.transport import Transport
 from nrf_radio_gui.widgets.command_tab import CommandTab
 from nrf_radio_gui.widgets.ficr_tab import FicrTab
 
-# tests/test_factory.py derives a row width budget from this, so widen it there too.
-WINDOW_W = 1000
+# The row width budget is derived from this, so it lives in one place.
+from nrf_radio_gui.widgets.factory import WINDOW_W
+
 WINDOW_H = 760
 
 LOG_LIMIT = 5000

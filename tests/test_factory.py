@@ -7,7 +7,7 @@
 
 import unittest
 
-from PyQt6.QtGui import QFontMetrics
+from PyQt6.QtGui import QFont, QFontMetrics
 from PyQt6.QtWidgets import QApplication, QComboBox, QLabel, QLineEdit, QSpinBox
 
 from nrf_radio_gui import theme
@@ -15,7 +15,9 @@ from nrf_radio_gui.commands import ficr, shortrange, wifi
 from nrf_radio_gui.widgets import factory
 from nrf_radio_gui.widgets.factory import (
     CommandRow,
+    arg_width,
     fits,
+    label_width,
     row_width,
     value_of,
     widget_for,
@@ -46,7 +48,7 @@ class TestBudget(unittest.TestCase):
 
     def test_the_budget_is_not_vacuous(self):
         """It has to reject something, or it is only decoration."""
-        self.assertFalse(fits(factory.MAX_ARGS + 2))
+        self.assertFalse(fits(factory.MAX_ARGS + 4))
 
     def test_row_width_grows_with_arity(self):
         widths = [row_width(n) for n in range(factory.MAX_ARGS + 1)]
@@ -54,19 +56,41 @@ class TestBudget(unittest.TestCase):
 
 
 class TestLabelWidth(unittest.TestCase):
-    """LABEL_W at 170 clipped start_duty_cycle_modulated_tx to a different name."""
+    """A clipped command name reads as a different command.
+
+    The width is measured rather than fixed. 232 px fits the longest name in the
+    font this machine happens to use and clips it in DejaVu Sans 10pt at 249 px,
+    which is how the Windows runner failed while Linux and macOS passed.
+    """
 
     def test_no_command_name_is_clipped(self):
-        metrics = QFontMetrics(QLabel("x").font())
+        metrics = QFontMetrics(QLabel().font())
         for module in ALL:
             for command in module.COMMANDS:
                 with self.subTest(command.name):
                     self.assertLessEqual(metrics.horizontalAdvance(command.name),
-                                         factory.LABEL_W)
+                                         label_width())
 
-    def test_the_longest_name_is_the_one_we_sized_for(self):
-        longest = max((c.name for m in ALL for c in m.COMMANDS), key=len)
-        self.assertEqual(longest, "start_tx_sweep_with_sleep_modulated")
+    def test_label_never_drops_below_its_floor(self):
+        self.assertGreaterEqual(label_width(), factory.LABEL_MIN_W)
+
+    def test_a_wider_font_widens_the_label_instead_of_clipping(self):
+        """The Windows regression, reproduced by forcing a wider font."""
+        names = factory._command_names()
+        for family, size in (("DejaVu Sans", 10), ("Noto Sans", 10), ("DejaVu Sans", 14)):
+            with self.subTest(f"{family} {size}pt"):
+                metrics = QFontMetrics(QFont(family, size))
+                widest = max(metrics.horizontalAdvance(n) for n in names)
+                derived = max(factory.LABEL_MIN_W, widest + factory.LABEL_PAD)
+                self.assertGreaterEqual(derived, widest,
+                                        "label must cover the widest name")
+                # And the row must still fit once the label has taken its share.
+                fixed = (derived + factory.BUTTON_W
+                         + factory.SPACING * (factory.MAX_ARGS + 1)
+                         + factory.MARGINS + factory.SCROLLBAR_W)
+                spare = (factory.WINDOW_W - fixed) // factory.MAX_ARGS
+                self.assertGreaterEqual(spare, factory.ARG_MIN_W,
+                                        "argument column squeezed below its floor")
 
 
 class TestWidgetChoice(unittest.TestCase):
@@ -112,7 +136,11 @@ class TestWidgetChoice(unittest.TestCase):
             for command in module.COMMANDS:
                 for arg in command.args:
                     widths.add(widget_for(arg).width())
-        self.assertEqual(widths, {factory.ARG_MAX_W})
+        self.assertEqual(widths, {arg_width()})
+
+    def test_argument_width_stays_inside_its_bounds(self):
+        self.assertGreaterEqual(arg_width(), factory.ARG_MIN_W)
+        self.assertLessEqual(arg_width(), factory.ARG_MAX_W)
 
 
 class TestCommandRow(unittest.TestCase):

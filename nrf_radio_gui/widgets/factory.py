@@ -22,6 +22,7 @@ case that matters — the published range is 0-24 and the device takes 30.
 """
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFontMetrics
 from PyQt6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -41,15 +42,19 @@ from nrf_radio_gui.commands.spec import (
     Text,
 )
 
-# Derived from the 1000 px window in app.py. Keep them in step.
+# app.py imports this, so the window and the budget cannot drift apart.
 WINDOW_W = 1000
-# The longest command name, `set_channel_sequence_hopping_mode`, measures 216 px
-# in the application font. At 170 the label silently clipped
-# `start_duty_cycle_modulated_tx` to `start_duty_cycle_modulated`, which reads as
-# a different command. A clipped command name is worse than a narrow field.
-LABEL_W = 232
-# Every argument widget is exactly this wide, so the column lines up. Trimmed
-# from 220 so a three-argument row still fits once LABEL_W grew.
+# The label column is measured, not fixed. A hard-coded width is a measurement of
+# one platform's font: 232 px fits the longest name in Sans Serif 9pt here, and
+# clips it in DejaVu Sans 10pt at 249 px or Noto Sans 10pt at 233 px. A clipped
+# command name reads as a different command, which is the worst failure this
+# layout has.
+LABEL_MIN_W = 170
+LABEL_PAD = 16
+# Argument widgets share one width so the column aligns. The ceiling is a
+# preference; the floor is a requirement, and what actually gets used is whatever
+# the label leaves over.
+ARG_MIN_W = 110
 ARG_MAX_W = 200
 BUTTON_W = 90
 SPACING = 6
@@ -63,11 +68,45 @@ SCROLLBAR_W = 12
 MAX_ARGS = 3
 
 
+_label_w = None
+
+
+def _command_names():
+    """Every command name in every table, for measuring the label column."""
+    from nrf_radio_gui.commands import ficr, shortrange, wifi
+
+    return [c.name for m in (wifi, shortrange, ficr) for c in m.COMMANDS]
+
+
+def label_width():
+    """Width the longest command name needs in the font actually in use.
+
+    Cached: it depends on the application font, which is set once at startup.
+    """
+    global _label_w
+    if _label_w is None:
+        metrics = QFontMetrics(QLabel().font())
+        widest = max(metrics.horizontalAdvance(n) for n in _command_names())
+        _label_w = max(LABEL_MIN_W, widest + LABEL_PAD)
+    return _label_w
+
+
+def _fixed(count):
+    """Everything in a row that is not an argument widget."""
+    return (label_width() + BUTTON_W + SPACING * (count + 1)
+            + MARGINS + SCROLLBAR_W)
+
+
+def arg_width(count=None):
+    """Width for each argument widget, given what the label left over."""
+    count = MAX_ARGS if count is None else max(1, count)
+    spare = (WINDOW_W - _fixed(count)) // count
+    return max(ARG_MIN_W, min(ARG_MAX_W, spare))
+
+
 def row_width(count):
-    """Width a row needs for `count` argument widgets at their maximum."""
-    widgets = 2 + count           # label, args, button
-    return (LABEL_W + count * ARG_MAX_W + BUTTON_W
-            + SPACING * (widgets - 1) + MARGINS + SCROLLBAR_W)
+    """Width a row needs for `count` argument widgets."""
+    return _fixed(count) + count * arg_width()
 
 
 def budget():
@@ -85,7 +124,7 @@ def _combo(pairs, tip=""):
         box.addItem(f"{value} - {label}", userData=str(value))
     # Fixed, not a range: each combo would otherwise size to its own longest
     # item and the argument column would come out ragged.
-    box.setFixedWidth(ARG_MAX_W)
+    box.setFixedWidth(arg_width())
     if tip:
         box.setToolTip(tip)
     return box
@@ -93,7 +132,7 @@ def _combo(pairs, tip=""):
 
 def _line(text="", tip=""):
     edit = QLineEdit(text)
-    edit.setFixedWidth(ARG_MAX_W)
+    edit.setFixedWidth(arg_width())
     if tip:
         edit.setToolTip(tip)
     return edit
@@ -118,7 +157,7 @@ def widget_for(arg):
             box.addItem(label, userData=arg.sentinel)
         for value in arg.values:
             box.addItem(str(value), userData=str(value))
-        box.setFixedWidth(ARG_MAX_W)
+        box.setFixedWidth(arg_width())
         if tip:
             box.setToolTip(tip)
         return box
@@ -131,7 +170,7 @@ def widget_for(arg):
                 spin.setValue(arg.default)
             if arg.unit:
                 spin.setSuffix(f" {arg.unit}")
-            spin.setFixedWidth(ARG_MAX_W)
+            spin.setFixedWidth(arg_width())
             if tip:
                 spin.setToolTip(tip)
             return spin
@@ -179,8 +218,7 @@ class CommandRow(QWidget):
         layout.setSpacing(SPACING)
 
         name = QLabel(command.name)
-        name.setMinimumWidth(LABEL_W)
-        name.setMaximumWidth(LABEL_W)
+        name.setFixedWidth(label_width())
         name.setToolTip(command.help or command.name)
         layout.addWidget(name)
 
