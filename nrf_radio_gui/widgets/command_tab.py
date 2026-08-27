@@ -8,7 +8,7 @@
 The tab is generic. It reads a Registry, asks the probe what the image actually
 has, and lays out a CommandRow for each surviving command. Subclasses override
 `extra_groups()` to put something above the list and `request()` to change what
-sending means — the FICR tab uses both.
+sending means, the FICR tab uses both.
 
 There is a filter box rather than a hand-made taxonomy. `wifi_radio_test` has 55
 rows and no grouping exists in the shell or the source to inherit, so any

@@ -129,7 +129,7 @@ class NumberSet(Arg):
     them through a float and 11 becomes 11.0, which the shell will not take.
 
     The set is what the shell's help lists, and that is not always what the shell
-    accepts. tx_pkt_rate advertises 5.5 and refuses it — the parser truncates to
+    accepts. tx_pkt_rate advertises 5.5 and refuses it, the parser truncates to
     5, then answers `Invalid Legacy Rate value: 5`. Keep the advertised value and
     let the device reject it. Dropping it hides a disagreement that a later SDK
     may fix.
@@ -213,7 +213,7 @@ class Command:
     # command only. Deferred values arrive as unlabelled log lines well after the
     # prompt, so without something to match on, an abandoned answer from an
     # earlier command is indistinguishable from this one's. The shell does name
-    # its readings — "The temperature is", "battery voltage is" — so use that.
+    # its readings: "The temperature is", "battery voltage is", so use that.
     log_match: str = ""
     # True when running this discards configuration. `init` resets every
     # parameter, so configure after init, never before.

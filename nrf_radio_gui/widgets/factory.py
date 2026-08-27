@@ -11,14 +11,14 @@ adding an argument *kind* does.
 > The row width budget is not decoration. A command with three arguments and
 > generous widget minimums pushes its own Send button off the right edge, behind
 > a horizontal scroll bar, where nobody finds it. `fits()` is checked in the
-> tests against the widest command in the tables — `wifi_radio_test config_pta`,
+> tests against the widest command in the tables: `wifi_radio_test config_pta`,
 > which takes three.
 
 Widget choice follows one rule: never invent a bound. An `IntRange` with both
 bounds known becomes a spin box, because the range is real. One with an unknown
 bound becomes a line edit validated against the spec, because a spin box has to
 be given a ceiling and the only honest ceiling is "unknown". `tx_power` is the
-case that matters — the published range is 0-24 and the device takes 30.
+case that matters, the published range is 0-24 and the device takes 30.
 """
 
 from PyQt6.QtCore import Qt

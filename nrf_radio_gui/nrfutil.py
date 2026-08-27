@@ -22,7 +22,7 @@ walking the tree looking for a key called something like "devices".
 > `traits` object has its own `serialPorts` key, so a loose search fills the port
 > list with trait names. Everything below indexes exact keys.
 
-> The JSON zero-pads serial numbers to 12 digits — `001051810810` — while the
+> The JSON zero-pads serial numbers to 12 digits: `001051810810`: while the
 > text output and the `--serial-number` argument both use the unpadded
 > `1051810810`. `Device.serial` is the unpadded form so it can be passed straight
 > back to nrfutil; `Device.serial_raw` keeps what the JSON said.
@@ -84,6 +84,16 @@ class Device:
     family: str = ""
     ports: tuple = ()
     traits: tuple = ()
+
+    @property
+    def is_devkit(self):
+        """True for a development kit, from nrfutil's own `devkit` trait.
+
+        A bench carries other serial devices. One enumerated here had no
+        `devkit` block at all, so counting every device made a kit ambiguous
+        when only one DK was attached.
+        """
+        return "devkit" in self.traits
 
     @property
     def board_name(self):

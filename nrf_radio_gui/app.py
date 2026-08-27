@@ -6,8 +6,8 @@
 """Window, wiring, and the send funnel.
 
 Every command reaches the kit through `send_command()`. Nothing else touches the
-transport, so the rules that must not be bypassed — the reply mode from the
-table, the guard on anything that discards configuration — live in one place.
+transport, so the rules that must not be bypassed, the reply mode from the
+table, the guard on anything that discards configuration: live in one place.
 
 Serial work runs on a worker thread. Discovery takes up to 1.5 s per port and a
 deferred reply takes about 1.4 s, both long enough to freeze the window if run on
@@ -248,8 +248,8 @@ class MainWindow(QMainWindow):
         """The only path to the kit.
 
         Guards that must not be bypassed belong here. `init` resets every
-        configuration parameter, and the natural order — configure, then init
-        because init sounds like a first step — leaves a radio at defaults while
+        configuration parameter, and the natural order: configure, then init
+        because init sounds like a first step: leaves a radio at defaults while
         the screen still shows the values that were typed.
         """
         if not line:

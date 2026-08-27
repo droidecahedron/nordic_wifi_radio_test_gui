@@ -153,11 +153,11 @@ def candidate_ports(devices=None, serial=None):
     """Ports worth probing, best first.
 
     VCOM0 carried the shell on the nRF54LM20 DK and VCOM1 was silent, so VCOM0 is
-    tried first — but VCOM1 is still offered, because that ordering is one
+    tried first, but VCOM1 is still offered, because that ordering is one
     board's habit rather than a rule.
 
     `serial` narrows to one kit. A bench with two DKs enumerates in whatever
-    order nrfutil returns, so without it the first kit to answer wins — which is
+    order nrfutil returns, so without it the first kit to answer wins, which is
     fine when only one is running the radio test and wrong the moment both are.
     """
     if devices is None:

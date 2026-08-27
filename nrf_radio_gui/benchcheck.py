@@ -13,11 +13,13 @@ absent is worse than no test. This exits non-zero on failure so it can gate a
 release, and it is the only place the claim "it works on hardware" is checked.
 
 Nothing here writes OTP or starts a transmitter. Every command sent is a read or
-a query, so it is safe to run on a kit somebody else is using — with the one
+a query, so it is safe to run on a kit somebody else is using: with the one
 caveat that it opens the port exclusively for the duration.
 
-Pass --serial to pin it. A bench with two DKs enumerates in whatever order
-nrfutil returns them, and probing the wrong one wastes 1.5 s per silent port.
+Selects among development kits, by nrfutil's `devkit` trait, so other serial
+devices on the bus are ignored. --serial is needed only when more than one DK is
+attached, since nrfutil returns them in no useful order and probing the wrong one
+wastes 1.5 s per silent port.
 """
 
 import argparse
@@ -52,7 +54,8 @@ def check(name, condition, detail=""):
 def main(argv=None):
     _results.clear()
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--serial", help="kit to test; required if more than one")
+    parser.add_argument("--serial",
+                        help="DK to test; required only if more than one is attached")
     parser.add_argument("--loose", action="store_true",
                         help="skip the per-image command counts")
     args = parser.parse_args(argv)
@@ -69,17 +72,26 @@ def main(argv=None):
     if not check("a kit is attached", devices):
         return 2
 
+    # Pick among development kits, not among every serial device on the bus.
+    kits = [d for d in devices if d.is_devkit]
+    if not check("a development kit is attached", kits,
+                 f"{len(kits)} of {len(devices)} devices carry the devkit trait"):
+        return 2
+
     serial = args.serial
     if serial is None:
-        if len(devices) > 1:
-            print("FAIL  more than one kit attached; pass --serial")
+        if len(kits) > 1:
+            names = ", ".join(f"{d.serial} ({d.board_name})" for d in kits)
+            print(f"FAIL  more than one DK attached, pass --serial: {names}")
             return 2
-        serial = devices[0].serial
-    wanted = [d for d in devices if d.serial.lstrip("0") == str(serial).lstrip("0")]
-    if not check(f"kit {serial} is present", wanted):
-        return 2
-    device = wanted[0]
-    print(f"      testing {device.label}")
+        device = kits[0]
+        print(f"      one DK attached, testing {device.label}")
+    else:
+        wanted = [d for d in kits
+                  if d.serial.lstrip("0") == str(serial).lstrip("0")]
+        if not check(f"DK {serial} is present", wanted):
+            return 2
+        device = wanted[0]
 
     print("\n=== discover ===")
     probes = discovery.scan(devices, serial=device.serial)

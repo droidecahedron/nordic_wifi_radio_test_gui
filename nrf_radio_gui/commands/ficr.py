@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-"""`wifi_radio_ficr_prog` registry — nRF7002 OTP.
+"""`wifi_radio_ficr_prog` registry: nRF7002 OTP.
 
 Rows come from `nrf/samples/wifi/radio_test/multi_domain/src/nrf_wifi_radio_ficr_shell.c`
 at NCS v3.4.0, `SHELL_STATIC_SUBCMD_SET_CREATE` at line 463. Field offsets come
@@ -60,7 +60,7 @@ class OtpTarget:
 
 # Every field otp_write_params will accept. The handler rejects anything below
 # REGION_PROTECT and anything in the retrim range PRODRETEST_PROGVERSION (86) to
-# PRODRETEST_TRIM14 (101) — those go through the retrim commands instead.
+# PRODRETEST_TRIM14 (101): those go through the retrim commands instead.
 OTP_TARGETS = (
     OtpTarget("REGION_PROTECT", 64, 1,
               "Writes all four consecutive REGION_PROTECT words at once"),
@@ -83,7 +83,7 @@ RETRIM_INDEX = (0, 14)
 
 # Every write path first reads REGION_PROTECT and refuses unless the region is
 # OTP_ENABLE_PATTERN or OTP_FRESH_FROM_FAB, reporting "USER Region is not
-# Writeable". That is the last line of defence, not the first — do not rely on it.
+# Writeable". That is the last line of defence, not the first: do not rely on it.
 WRITE_GUARD = "USER Region is not Writeable"
 
 COMMANDS = (
@@ -98,7 +98,7 @@ COMMANDS = (
 
     # PERMANENT. Argument count varies by target; see OTP_TARGETS.words. The
     # shell declares 1 mandatory argument and up to 16 optional, so arity cannot
-    # be enforced here — the target decides it.
+    # be enforced here, the target decides it.
     Command("otp_write_params",
             (Text("address", help="Byte address, e.g. 0x130 for CALIB_XO"),
              Text("data", help="One to four 32-bit words, space separated")),

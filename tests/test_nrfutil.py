@@ -144,6 +144,31 @@ class TestProgrammingDefaults(unittest.TestCase):
         self.assertEqual(nrfutil.DEFAULT_ERASE, "ERASE_ALL")
         self.assertIn("ERASE_RANGES_TOUCHED_BY_FIRMWARE", nrfutil.ERASE_MODES)
 
+class TestDevkitSelection(unittest.TestCase):
+    """Pick among development kits, not among every serial device on the bus."""
+
+    def _device(self, serial, traits, pca=""):
+        return nrfutil.devices_from_ndjson(json.dumps({
+            "type": "info", "data": {"devices": [{
+                "serialNumber": serial,
+                "devkit": {"boardVersion": pca} if pca else {},
+                "traits": {t: True for t in traits},
+            }]}}))[0]
+
+    def test_the_devkit_trait_identifies_a_kit(self):
+        kit = self._device("1051810810", ("devkit", "jlink"), "PCA10184")
+        self.assertTrue(kit.is_devkit)
+        self.assertEqual(kit.board_name, "nRF54LM20 DK")
+
+    def test_a_plain_serial_device_is_not_a_kit(self):
+        """One such device enumerated on the bench with no devkit block."""
+        other = self._device("D2C7405C36AB", ("usb", "serialPorts"))
+        self.assertFalse(other.is_devkit)
+
+    def test_the_fixture_kit_is_a_devkit(self):
+        for device in nrfutil.devices_from_ndjson(FIXTURE.read_text()):
+            with self.subTest(device.serial):
+                self.assertTrue(device.is_devkit)
 
 if __name__ == "__main__":
     unittest.main()

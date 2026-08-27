@@ -10,7 +10,7 @@ These are not namespaced: `single_domain/CMakeLists.txt` pulls that file into th
 application via `${PERIP_RT_DIR}/src/radio_cmd.c`, so its `SHELL_CMD_REGISTER`
 calls land at the shell root alongside `wifi_radio_test`. Hence PREFIX is "".
 
-23 registrations in source. An nRF54LM20 DK running single_domain presents 20 —
+23 registrations in source. An nRF54LM20 DK running single_domain presents 20
 `total_output_power`, `toggle_dcdc_state`, and `fem` are compiled out.
 
 Bounds are from the argument checks in radio_cmd.c, not from the help strings,

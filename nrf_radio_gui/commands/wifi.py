@@ -13,7 +13,7 @@ All 55 names are here, including the ones a given image compiles out, so the too
 also drives an nRF71 or a coex build. `gate` records the Kconfig condition;
 whether a command actually exists is decided by probing the shell. An
 nRF54LM20 DK with an nRF7002-EB II running the single_domain sample presents 43
-of these — see docs/block0_findings.md.
+of these: see docs/block0_findings.md.
 
 Reply modes are measured, not assumed. See REPLY notes on the readback commands.
 """

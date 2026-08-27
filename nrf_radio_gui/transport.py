@@ -41,8 +41,8 @@ POLL_S = 0.05
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 # A read can start or stop part-way through an escape sequence. A probe of a
-# freshly reset kit came back starting `[m\r\n` — ESC consumed by the previous
-# read — and containing a bare `\x1b[8`, the head of a `\x1b[8D` cursor move that
+# freshly reset kit came back starting `[m\r\n`: ESC consumed by the previous
+# read, and containing a bare `\x1b[8`, the head of a `\x1b[8D` cursor move that
 # the newline cut off. Neither matches _ANSI, so both need their own pass.
 _ORPHAN = re.compile(r"\A\[[0-9;]*[A-Za-z]")
 # Whatever is left once complete sequences are gone: a truncated one, cut off by
@@ -113,7 +113,7 @@ def split(raw, sent):
     for line in clean(raw).split("\n"):
         line = _ORPHAN.sub("", line)
         # A prompt can be glued to the front of real content. Removing it leaves
-        # the gap behind, so drop that too — but only on lines that had one.
+        # the gap behind, so drop that too, but only on lines that had one.
         had_prompt = PROMPT in line
         while PROMPT in line:
             line = line.replace(PROMPT, "", 1)
@@ -202,7 +202,7 @@ class Transport:
         `reset_input_buffer` only drops bytes that have already arrived, so it
         cannot prevent a late value being attributed to the next command. Sending
         get_temperature without waiting for its answer and then asking for
-        get_voltage puts the temperature in the voltage reply — measured, not
+        get_voltage puts the temperature in the voltage reply: measured, not
         theoretical.
 
         Only charged when the previous write is recent enough that something could
@@ -238,7 +238,7 @@ class Transport:
         `expect` is text identifying this command's own deferred answer, from
         Command.log_match. Deferred values arrive as unlabelled log lines long
         after the prompt, so an answer abandoned by an earlier command is
-        otherwise indistinguishable from this one's — asking for a temperature
+        otherwise indistinguishable from this one's: asking for a temperature
         without waiting and then asking for a voltage puts the temperature in the
         voltage's reply. With `expect` set, only matching lines are kept and a
         stale one is discarded rather than misattributed.
@@ -295,7 +295,7 @@ class Transport:
         # Residual hazard, deliberately accepted: sending one of the four deferred
         # commands with the wrong Reply mode abandons its value, which then lands
         # in the next command's reply. The command tables carry the right mode for
-        # exactly this reason — drive send() from cmd.reply and it cannot happen.
+        # exactly this reason: drive send() from cmd.reply and it cannot happen.
         self._maybe_pending = deferred and not logs
         return Exchange(
             sent=line,

@@ -6,7 +6,7 @@
 """Palette and stylesheet, keyed to nRF Connect for Desktop.
 
 Colours are sampled, not invented. They come out of nRF Connect for Desktop
-5.3.2 — `nrfconnect-5.3.2-x86_64.AppImage`, `resources/app.asar`, which declares
+5.3.2: `nrfconnect-5.3.2-x86_64.AppImage`, `resources/app.asar`, which declares
 its own CSS custom properties:
 
     --primary: #00a9ce    --success: #4caf50    --danger:  #f44336
@@ -18,7 +18,7 @@ colour in the bundle, so it is the accent here too.
 
 This is a light theme because the app it borrows from is a light app. Counting
 `background-color` uses in the same bundle, light surfaces outnumber dark ones
-about two to one — `#cfd8dc` 15, `#ffffff` 5, `#eceff1` 4, against `#37474f` 9 and
+about two to one: `#cfd8dc` 15, `#ffffff` 5, `#eceff1` 4, against `#37474f` 9 and
 `#263238` 3. An earlier version of this file built a dark theme from the same
 values, which read as black chrome with dim grey controls and looked nothing like
 the tool it sits next to.
