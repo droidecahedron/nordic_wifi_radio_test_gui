@@ -2,9 +2,11 @@
 
 Drive the nRF Connect SDK [radio test shells](https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/wifi/radio_test/single_domain/README.html) by clicking instead of typing.
 
-<img width="991" height="734" alt="image" src="https://github.com/user-attachments/assets/a94e76b9-580e-4630-b739-afbdbdf67230" />
+<img width="1006" height="729" alt="image" src="https://github.com/user-attachments/assets/fbfdbd8a-493a-4bc3-8563-66899e7fede9" />
 
-*Note* : This is an unofficial pyqt wrapper for the sample.
+>[!IMPORTANT]
+> This is an unofficial pyqt wrapper for the sample.
+> All commands were transposed from the table [here](https://nrfconnectdocs.nordicsemi.com/ncs/latest/nrf/samples/wifi/radio_test/single_domain/radio_test_subcommands.html).
 
 ## Requirements
 
