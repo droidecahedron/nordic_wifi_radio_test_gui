@@ -84,8 +84,10 @@ COMMANDS = (
                        sentinel_help="-1 leaves legacy rate unused",
                        help="Mbps. 5.5 is advertised but rejected by the shell"),),
             "Legacy rate in Mbps, -1 to leave unused"),
+    # Doc gives Min 0, Max 200000, default 0. The shell help string claims
+    # "Min: 200, Default: 200" and is wrong on both. Following the doc.
     Command("tx_pkt_gap",
-            (IntRange("gap", lo=200, hi=200000, default=200, unit="us"),),
+            (IntRange("gap", lo=0, hi=200000, default=0, unit="us"),),
             "Interval between TX packets"),
     Command("tx_pkt_num",
             (IntRange("num", lo=-1, help="-1 transmits indefinitely"),),
@@ -134,8 +136,10 @@ COMMANDS = (
     Command("rx_bb_gain",
             (IntRange("bb", lo=0, hi=31, help="5-bit, 64 dB range in 2 dB steps"),),
             "Baseband gain"),
+    # Doc gives Min 0, Max 16383. The shell help says "Max allowed length is
+    # 16384", off by one. Following the doc.
     Command("rx_capture_length",
-            (IntRange("length", lo=0, hi=16384, unit="samples"),),
+            (IntRange("length", lo=0, hi=16383, unit="samples"),),
             "RX samples to capture"),
     Command("rx_capture_timeout",
             (IntRange("timeout", lo=0, hi=600, unit="s"),),

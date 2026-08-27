@@ -34,6 +34,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from nrf_radio_gui.commands.docs import DEFAULTS as DOC_DEFAULTS
+from nrf_radio_gui.commands.docs import RANGES as DOC_RANGES
 from nrf_radio_gui.commands.docs import describe
 from nrf_radio_gui.commands.spec import (
     Choice,
@@ -192,9 +194,70 @@ def _line(text="", tip=""):
     return edit
 
 
-def widget_for(arg):
+def describe_arg(arg, command=None):
+    """Tooltip for one argument: what it accepts, and what it defaults to.
+
+    A dropdown already shows its whole set, so this matters for the typed and
+    stepped controls where the bounds are otherwise invisible. `set_xo_val`
+    accepts 0-127 and nothing on screen said so.
+
+    The default comes from the SDK doc table when it has one, since that is
+    where a non-numeric answer lives: set_xo_val documents "42 or value
+    programmed in OTP", which is the honest answer for a field seeded from OTP.
+    """
+    lines = []
+    name = command.name if command is not None else ""
+    lo = getattr(arg, "lo", None)
+    hi = getattr(arg, "hi", None)
+    unit = getattr(arg, "unit", "")
+    values = getattr(arg, "values", None)
+
+    if isinstance(arg, IntRange):
+        if lo is not None and hi is not None:
+            lines.append(f"Range: {lo} to {hi}{' ' + unit if unit else ''}")
+        elif lo is not None:
+            lines.append(f"Minimum: {lo}{' ' + unit if unit else ''}")
+        elif hi is not None:
+            lines.append(f"Maximum: {hi}{' ' + unit if unit else ''}")
+        else:
+            # tx_power is the case: the doc gives 0-24 while the kit boots at 30
+            # and accepts it. Stating the documented range without clamping the
+            # field keeps the doc visible and still lets the device's own value
+            # be sent back.
+            doc = DOC_RANGES.get(name)
+            if doc:
+                lines.append(f"Documented range: {doc[0]} to {doc[1]}"
+                             f"{' ' + unit if unit else ''}, not enforced here")
+            else:
+                lines.append(f"No documented bound{'; ' + unit if unit else ''}")
+        if arg.step and arg.step != 1:
+            lines.append(f"Step: {arg.step}")
+    elif values:
+        lines.append("Accepts: " + ", ".join(str(v) for v in values))
+        if getattr(arg, "sentinel", None) is not None:
+            lines.append(f"Or {arg.sentinel}: {arg.sentinel_help or 'unused'}")
+    elif isinstance(arg, Text):
+        lines.append("Free text; the shell validates it")
+
+    doc_default = DOC_DEFAULTS.get(command.name) if command is not None else None
+    own_default = getattr(arg, "default", None)
+    # Attribute it. The doc and the device disagree in places: tx_power is
+    # documented as 0 and SN 1051810810 boots at 30, so a bare number would read
+    # as fact.
+    if doc_default is not None:
+        lines.append(f"Default: {doc_default} (SDK docs)")
+    elif own_default is not None:
+        lines.append(f"Default: {own_default} (shell help)")
+
+    for extra in (arg.help, getattr(arg, "note", "")):
+        if extra:
+            lines.append(extra)
+    return "\n".join(lines)
+
+
+def widget_for(arg, command=None):
     """Build the control for one argument."""
-    tip = " ".join(p for p in (arg.help, getattr(arg, "note", "")) if p)
+    tip = describe_arg(arg, command)
 
     if isinstance(arg, Flag):
         return _combo(arg.labels(), tip)
@@ -313,7 +376,7 @@ class CommandRow(QWidget):
 
         self.widgets = []
         for arg in command.args:
-            control = widget_for(arg)
+            control = widget_for(arg, command)
             self.widgets.append(control)
             layout.addWidget(control)
 

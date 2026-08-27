@@ -102,6 +102,20 @@ DEFAULTS = {
     'sr_ant_switch_ctrl': '0',
 }
 
+# Explicit Min/Max from the doc's Argument column. The authority for a bound:
+# a shell help string put tx_pkt_gap's minimum at 200 where the doc says 0, and
+# a device accepting a value only proves it does not range-check.
+RANGES = {
+    'tx_pkt_gap': (0, 200000),
+    'tx_power': (0, 24),
+    'rx_capture_length': (0, 16383),
+    'rx_capture_timeout': (0, 600),
+    'tx_tone_freq': (-10, 10),
+    'set_xo_val': (0, 127),
+    'set_ant_gain': (0, 6),
+    'set_edge_bo': (0, 10),
+}
+
 KIND = {
     'set_defaults': 'Configuration',
     'phy_calib_rxdc': 'Configuration',

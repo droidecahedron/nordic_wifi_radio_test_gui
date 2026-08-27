@@ -32,8 +32,7 @@ Download one file and run it. No clone, no Python, no venv.
 | macOS Intel | `nrf-radio-test-macos-x86_64.app.zip` | unzip, right-click Open |
 | Linux | `nrf-radio-test-linux-x86_64` | `chmod +x`, then run |
 
-One binary per platform in [Releases](../../releases), since PyInstaller has no
-cross-compile. Verify a download against a kit:
+One binary per platform in [Releases](../../releases). Verify one against a kit:
 
 ```
 nrf-radio-test --selftest --serial 1051810810
@@ -59,15 +58,13 @@ blobs first, and `CONFIG_NRFX_GPPI=y` or `radio_test.c` will not link.
 
 ## Usage
 
-The window scans on launch.
-
 | control | effect |
 | --- | --- |
 | **Kit** | which DK to talk to. Rescan follows this selection |
 | **Rescan** | re-enumerate and re-probe |
 | **Connect** | open or close the shell port |
 | **Flash** | program the bundled hex onto the selected kit |
-| state chip | green once a shell answered, otherwise the reason |
+| state chip | green once a shell answered, otherwise the reason. Scans on launch |
 
 One tab per shell registry. `43 of 55 on this image` means the table declares 55
 and the probe found 43. **Send** renders the command; replies land in the log.
@@ -98,11 +95,11 @@ Commands are data. Adding a subcommand is a table row, never widget code.
 
 | layer | command | covers |
 | --- | --- | --- |
-| headless | `QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover tests` | 137 tests, no hardware, no display |
+| headless | `QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover tests` | 156 tests, no hardware, no display |
 | bench | `.venv/bin/python tools/bench_check.py --serial 1051810810` | 27 checks on a real kit, reads only |
 
-Both exit non-zero on failure. Hardware checks stay out of `unittest`, since one
-that passes with no kit attached is worse than no test.
+Both exit non-zero. Hardware checks stay out of `unittest`, since one that passes
+with no kit attached is worse than no test.
 
 > [!IMPORTANT]
 > Pass `--serial`. With two DKs attached it refuses to guess. Probing the wrong
@@ -137,9 +134,8 @@ Each file in `nrf_radio_gui/commands/` names its in-tree source at the top.
 
 ## Building from source
 
-Only needed to change the tool. Users download a binary instead.
-
-Needs `Python 3.12`, and pip pulls `PyQt6 6.11.0` and `pyserial 3.5`.
+Only needed to change the tool. Needs `Python 3.12`; pip pulls `PyQt6 6.11.0`
+and `pyserial 3.5`.
 
 ```
 git clone git@github.com:droidecahedron/nordic_wifi_radio_test_gui.git
@@ -163,5 +159,24 @@ Build a standalone binary for the platform you are on:
 .venv/bin/pyinstaller nrf_radio_gui.spec --noconfirm
 ```
 
-`NRF_RADIO_GUI_CONSOLE=1` builds a console variant, so a traceback is visible in
-a frozen Windows or macOS build.
+`NRF_RADIO_GUI_CONSOLE=1` builds a console variant, which is how a traceback
+becomes visible in a frozen Windows or macOS build.
+
+## Releasing
+
+A release is a tag. Nothing here can be cross-compiled, so CI builds each binary
+on its own runner.
+
+```
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+```
+
+| trigger | where the binaries land | kept |
+| --- | --- | --- |
+| any push or PR | Actions run, under **Artifacts** | 90 days |
+| a `v*` tag | Releases, all four attached | forever |
+
+> [!IMPORTANT]
+> `build` runs only after `test` passes on all three platforms, so one red test
+> leaves the whole run with nothing to download.

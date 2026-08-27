@@ -177,6 +177,77 @@ class TestWidgetChoice(unittest.TestCase):
         self.assertLessEqual(arg_width(), factory.ARG_MAX_W)
 
 
+class TestArgTooltips(unittest.TestCase):
+    """A stepped or typed control shows no bounds on screen, so the tip must."""
+
+    def tip(self, module, name, index=0):
+        command = module.REGISTRY.by_name(name)
+        return factory.describe_arg(command.args[index], command)
+
+    def test_a_bounded_range_states_both_ends(self):
+        self.assertIn("Range: 0 to 127", self.tip(wifi, "set_xo_val"))
+
+    def test_the_unit_rides_along(self):
+        self.assertIn("MHz above 2400", self.tip(shortrange, "start_channel"))
+
+    def test_the_default_is_attributed_to_its_source(self):
+        self.assertIn("Default: 42 or value programmed in OTP",
+                      self.tip(wifi, "set_xo_val"))
+        self.assertIn("(SDK docs)", self.tip(wifi, "tx_power"))
+
+    def test_an_unclamped_field_still_shows_the_documented_range(self):
+        """tx_power: doc says 0-24, the kit boots at 30 and accepts it."""
+        tip = self.tip(wifi, "tx_power")
+        self.assertIn("Documented range: 0 to 24", tip)
+        self.assertIn("not enforced here", tip)
+        self.assertIsNone(wifi.REGISTRY.by_name("tx_power").args[0].validate("30"))
+
+    def test_a_discrete_set_lists_its_members_and_sentinel(self):
+        tip = self.tip(wifi, "tx_pkt_rate")
+        self.assertIn("5.5", tip)
+        self.assertIn("Or -1", tip)
+
+    def test_free_text_says_the_shell_decides(self):
+        self.assertIn("Free text", self.tip(wifi, "reg_domain"))
+
+    def test_every_non_dropdown_argument_gets_a_tooltip(self):
+        from nrf_radio_gui.commands.spec import Choice, Flag, Keyword
+        for module in ALL:
+            for command in module.COMMANDS:
+                for arg in command.args:
+                    if isinstance(arg, (Choice, Flag, Keyword)):
+                        continue
+                    with self.subTest(f"{command.name}:{arg.name}"):
+                        self.assertTrue(factory.describe_arg(arg, command).strip())
+
+    def test_the_widget_carries_it(self):
+        command = wifi.REGISTRY.by_name("set_xo_val")
+        self.assertIn("0 to 127", widget_for(command.args[0], command).toolTip())
+
+
+class TestDocumentedBounds(unittest.TestCase):
+    """The doc's Argument column is the authority for a range."""
+
+    def test_every_documented_range_matches_the_table(self):
+        from nrf_radio_gui.commands import docs
+        from nrf_radio_gui.commands.spec import IntRange
+        unclamped = {"tx_power"}      # kit boots outside the documented range
+        for name, (lo, hi) in docs.RANGES.items():
+            command = wifi.REGISTRY.by_name(name)
+            if command is None or name in unclamped:
+                continue
+            ints = [a for a in command.args if isinstance(a, IntRange)]
+            if not ints:
+                continue
+            with self.subTest(name):
+                self.assertEqual((ints[0].lo, ints[0].hi), (lo, hi))
+
+    def test_a_wrong_help_string_did_not_win(self):
+        """Help claimed tx_pkt_gap min 200 and max 16384 for rx_capture_length."""
+        self.assertEqual(wifi.REGISTRY.by_name("tx_pkt_gap").args[0].lo, 0)
+        self.assertEqual(wifi.REGISTRY.by_name("rx_capture_length").args[0].hi, 16383)
+
+
 class TestCommandRow(unittest.TestCase):
     def setUp(self):
         self.seen = []
